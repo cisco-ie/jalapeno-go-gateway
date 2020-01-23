@@ -102,7 +102,7 @@ func (m *Endpoint) GetAddress() []byte {
 }
 
 // latency defines one of available QoE metrics
-// value expresses latency vallue in milliseconds.
+// value expresses latency value in milliseconds.
 // variation expresses percent of the acceptable variation from value.
 type Latency struct {
 	Value                int32    `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
@@ -151,7 +151,7 @@ func (m *Latency) GetVariation() int32 {
 	return 0
 }
 
-// qoe_parameters defaines a list of QoE parameters a client can request.
+// qoe_parameters defines a list of QoE parameters a client can request.
 // Currently only latency is supported.
 type QoeParameters struct {
 	Latency              *Latency `protobuf:"bytes,1,opt,name=latency,proto3" json:"latency,omitempty"`

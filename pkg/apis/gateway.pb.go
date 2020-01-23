@@ -4,8 +4,12 @@
 package apis
 
 import (
+	context "context"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -389,4 +393,84 @@ var fileDescriptor_f1a937782ebbded5 = []byte{
 	0xaa, 0x43, 0xb1, 0x43, 0x76, 0x06, 0xd4, 0x66, 0x88, 0xfe, 0x6e, 0x6e, 0x7e, 0xe7, 0x9f, 0x1c,
 	0x97, 0xb7, 0xdd, 0x63, 0x7f, 0xfc, 0x3b, 0x00, 0x00, 0xff, 0xff, 0x15, 0xe8, 0xe7, 0xbc, 0xfd,
 	0x02, 0x00, 0x00,
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// QoEServiceClient is the client API for QoEService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type QoEServiceClient interface {
+	QoE(ctx context.Context, in *RequestQoE, opts ...grpc.CallOption) (*ResponseQoE, error)
+}
+
+type qoEServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewQoEServiceClient(cc *grpc.ClientConn) QoEServiceClient {
+	return &qoEServiceClient{cc}
+}
+
+func (c *qoEServiceClient) QoE(ctx context.Context, in *RequestQoE, opts ...grpc.CallOption) (*ResponseQoE, error) {
+	out := new(ResponseQoE)
+	err := c.cc.Invoke(ctx, "/apis.QoEService/QoE", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// QoEServiceServer is the server API for QoEService service.
+type QoEServiceServer interface {
+	QoE(context.Context, *RequestQoE) (*ResponseQoE, error)
+}
+
+// UnimplementedQoEServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedQoEServiceServer struct {
+}
+
+func (*UnimplementedQoEServiceServer) QoE(ctx context.Context, req *RequestQoE) (*ResponseQoE, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QoE not implemented")
+}
+
+func RegisterQoEServiceServer(s *grpc.Server, srv QoEServiceServer) {
+	s.RegisterService(&_QoEService_serviceDesc, srv)
+}
+
+func _QoEService_QoE_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestQoE)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QoEServiceServer).QoE(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apis.QoEService/QoE",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QoEServiceServer).QoE(ctx, req.(*RequestQoE))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _QoEService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "apis.QoEService",
+	HandlerType: (*QoEServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "QoE",
+			Handler:    _QoEService_QoE_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "gateway.proto",
 }

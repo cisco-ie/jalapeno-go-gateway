@@ -1,59 +1,44 @@
-syntax="proto3";
+syntax = "proto3";
 
-package api;
+package apis;
 
 // EndpointType defines supported endpoints' types
-enum EndpointType
-{
-    UNKNOWN = 0;
-    IPV4 = 1;
-    IPV6 = 2;
-    SID = 3;
+enum EndpointType {
+  UNKNOWN = 0;
+  IPV4 = 1;
+  IPV6 = 2;
+  SID = 3;
 }
 
-// endpoint is expressed by it is type and the value of endpoint, whether it is address,
-// or SR SID is stored in byte array.
-message endpoint 
-{
-    EndpointType type = 1;
-    bytes address = 2;
+// endpoint is expressed by it is type and the value of endpoint, whether it is
+// address, or SR SID is stored in byte array.
+message endpoint {
+  EndpointType type = 1;
+  bytes address = 2;
 }
 // latency defines one of available QoE metrics
 // value expresses latency vallue in milliseconds.
 // variation expresses percent of the acceptable variation from value.
-message latency
-{
-    int32 value = 1;
-    int32 variation = 2;
+message latency {
+  int32 value = 1;
+  int32 variation = 2;
 }
 // qoe_parameters defaines a list of QoE parameters a client can request.
 // Currently only latency is supported.
-message qoe_parameters
-{
-    latency latency = 1;
-}
-message qoe{
-    endpoint src = 1;
-    endpoint dst = 2;
-    qoe_parameters qoe = 3;
-    repeated uint32 label = 4;
-    int32 err = 5;
+message qoe_parameters { latency latency = 1; }
+message qoe {
+  endpoint src = 1;
+  endpoint dst = 2;
+  qoe_parameters qoe = 3;
+  repeated uint32 label = 4;
+  int32 err = 5;
 }
 // RequestQoE defines the rpc message sent by the client to the gateway.
 // Multiple Src/Dst/QoE are supported in a single request.
-message RequestQoE
-{
-    map<int32, qoe>  qoes = 1;
-}
+message RequestQoE { map<int32, qoe> qoes = 1; }
 // ResponseQoE defines  the rpc message sent as a reply to the client.
 // it is the same message as request, but the gateway populates labels and
 // err for each qoe.
-message ResponseQoE
-{
-    map<int32, qoe>  qoes = 1;
-}
+message ResponseQoE { map<int32, qoe> qoes = 1; }
 
-service QoEService
-{
-    rpc QoE (RequestQoE) returns (ResponseQoE);
-}
+service QoEService { rpc QoE(RequestQoE) returns (ResponseQoE); }

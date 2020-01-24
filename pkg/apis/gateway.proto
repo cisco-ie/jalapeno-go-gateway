@@ -10,6 +10,19 @@ enum EndpointType {
   SID = 3;
 }
 
+// Errors defines error codes which a gateway can return to a client
+enum GatewayErrors {
+  OK = 0;
+  // Returned when a gateway encountered a generic error
+  EIO = 1;
+  // Returned when request key does not exist
+  ENOENT = 2;
+  // Returned when an operation triggered by the client's requested timed out
+  // and was canceled
+  ETIMEDOUT = 3;
+  // Returned when a gateway cannot reach a DB host
+  EHOSTDOWN = 4;
+}
 // endpoint is expressed by it is type and the value of endpoint, whether it is
 // address, or SR SID is stored in byte array.
 message endpoint {
@@ -31,7 +44,7 @@ message qoe {
   endpoint dst = 2;
   qoe_parameters qoe = 3;
   repeated uint32 label = 4;
-  int32 err = 5;
+  GatewayErrors err = 5;
 }
 // RequestQoE defines the rpc message sent by the client to the gateway.
 // Multiple Src/Dst/QoE are supported in a single request.

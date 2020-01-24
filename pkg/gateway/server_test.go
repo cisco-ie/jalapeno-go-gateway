@@ -58,7 +58,7 @@ func TestClientRequestQoE(t *testing.T) {
 					// here is used as "expected" label stack, the server portion will override label stack with actual value
 					Label: []uint32{10024, 20024},
 					// Err here is used as "expected" error, the server portion will override err with actual value
-					Err: 0,
+					Err: pbapi.GatewayErrors_OK,
 				},
 			},
 			peer: &peer.Peer{
@@ -86,7 +86,7 @@ func TestClientRequestQoE(t *testing.T) {
 				t.Fatalf("test \"%s\" failed, expected error: %+v but got %+v", tt.name, qoe.Err, tt.qoeRequest[key].Err)
 			}
 			// If error was expected, then nothing else left to do, on to the next item.
-			if qoe.Err != 0 {
+			if qoe.Err != pbapi.GatewayErrors_OK {
 				continue
 			}
 			// Now check if returned by the server stack matches to the expected stack.

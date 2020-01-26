@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/test/bufconn"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient/mock"
 )
 
 const bufSize = 4096 * 1024
@@ -22,7 +23,8 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	flag.Set("logtostderr", "true")
 	conn = bufconn.Listen(bufSize)
-	gSrv := NewGateway(conn)
+	dbc := mock.NewMockDBClient(false,false)
+	gSrv := NewGateway(conn, dbc)
 	gSrv.Start()
 	os.Exit(m.Run())
 }
@@ -67,6 +69,56 @@ func TestClientRequestQoE(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "2 QoEs successful request",
+			qoeRequest: map[int32]*pbapi.Qoe{
+				0: &pbapi.Qoe{
+					Src: &pbapi.Endpoint{
+						Type:    pbapi.EndpointType_IPV4,
+						Address: net.ParseIP("10.0.0.1"),
+					},
+					Dst: &pbapi.Endpoint{
+						Type:    pbapi.EndpointType_IPV4,
+						Address: net.ParseIP("20.0.0.1"),
+					},
+					Qoe: &pbapi.QoeParameters{
+						Latency: &pbapi.Latency{
+							Value:     200,
+							Variation: 10,
+						},
+					},
+					// here is used as "expected" label stack, the server portion will override label stack with actual value
+					Label: []uint32{10024, 20024},
+					// Err here is used as "expected" error, the server portion will override err with actual value
+					Err: pbapi.GatewayErrors_OK,
+				},
+				1: &pbapi.Qoe{
+					Src: &pbapi.Endpoint{
+						Type:    pbapi.EndpointType_IPV4,
+						Address: net.ParseIP("10.0.0.1"),
+					},
+					Dst: &pbapi.Endpoint{
+						Type:    pbapi.EndpointType_IPV4,
+						Address: net.ParseIP("30.0.0.1"),
+					},
+					Qoe: &pbapi.QoeParameters{
+						Latency: &pbapi.Latency{
+							Value:     200,
+							Variation: 10,
+						},
+					},
+					// here is used as "expected" label stack, the server portion will override label stack with actual value
+					Label: []uint32{12024, 22024},
+					// Err here is used as "expected" error, the server portion will override err with actual value
+					Err: pbapi.GatewayErrors_OK,
+				},
+			},
+			peer: &peer.Peer{
+				Addr: &net.IPAddr{
+					IP: net.ParseIP("1.1.1.2"),
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		ctx := peer.NewContext(context.TODO(), tt.peer)
@@ -83,7 +135,7 @@ func TestClientRequestQoE(t *testing.T) {
 		for key, qoe := range resp.Qoes {
 			// First check if expected error state matches to the one returned by the server
 			if qoe.Err != tt.qoeRequest[key].Err {
-				t.Fatalf("test \"%s\" failed, expected error: %+v but got %+v", tt.name, qoe.Err, tt.qoeRequest[key].Err)
+				t.Fatalf("test \"%s\" failed, expected error: %+v but got %+v", tt.name, tt.qoeRequest[key].Err ,qoe.Err)
 			}
 			// If error was expected, then nothing else left to do, on to the next item.
 			if qoe.Err != pbapi.GatewayErrors_OK {

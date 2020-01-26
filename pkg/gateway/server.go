@@ -9,6 +9,7 @@ import (
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 )
 
 var (
@@ -25,6 +26,7 @@ type Gateway interface {
 type gateway struct {
 	gSrv *grpc.Server
 	conn net.Listener
+	dbc dbclient.DBClient
 }
 
 func (g *gateway) Start() {
@@ -55,10 +57,11 @@ func (g *gateway) QoE(ctx context.Context, reqQoes *pbapi.RequestQoE) (*pbapi.Re
 }
 
 // NewGateway return an instance of Gateway interface
-func NewGateway(conn net.Listener) Gateway {
+func NewGateway(conn net.Listener, dbc dbclient.DBClient) Gateway {
 	gSrv := gateway{
 		conn: conn,
 		gSrv: grpc.NewServer([]grpc.ServerOption{}...),
+		dbc: dbc,
 	}
 	pbapi.RegisterQoEServiceServer(gSrv.gSrv, &gSrv)
 
@@ -68,25 +71,16 @@ func NewGateway(conn net.Listener) Gateway {
 
 // processQoERequest start DB client and wait for either of 2 events, result comming back from a result channel
 // or a context timing out.
-func (g *gateway) processQoERequest(ctx context.Context, reqQoes *pbapi.RequestQoE) (*pbapi.ResponseQoE, error) {
-	var replQoes pbapi.ResponseQoE
+func (g *gateway) processQoERequest(ctx context.Context, reqQoEs *pbapi.RequestQoE) (*pbapi.ResponseQoE, error) {
+	var replQoEs pbapi.ResponseQoE
 	result := make(chan pbapi.ResponseQoE)
-	// TODO Once DB Interface is built, switch to using it here.
-	go dbClientSim(reqQoes, result)
+	// Requesting DB client to retrieve requested infotmation
+	go g.dbc.GetQoE(reqQoEs, result)
 	select {
-	case replQoes = <-result:
-		return &replQoes, nil
+	case replQoEs = <-result:
+		return &replQoEs, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
-func dbClientSim(reqQoes *pbapi.RequestQoE, result chan pbapi.ResponseQoE) {
-	replQoes := pbapi.ResponseQoE{
-		Qoes: reqQoes.Qoes,
-	}
-	// Simulating hung process
-	// time.Sleep(maxRequestProcessTime)
-
-	result <- replQoes
-}

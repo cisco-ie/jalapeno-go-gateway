@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/gateway"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/golang/glog"
 )
 
@@ -43,15 +44,14 @@ func main() {
 		srvPort, _ = strconv.Atoi(defaultGatewayPort)
 	}
 	// Initialize DB client
-
+    dbc := dbclient.NewDBClient()
 	// Initialize gRPC server
 	conn, err := net.Listen("tcp", ":"+strPort)
 	if err != nil {
 		glog.Errorf("failed to setup listener with with error: %+v", err)
 		os.Exit(1)
 	}
-
-	gSrv := gateway.NewGateway(conn)
+	gSrv := gateway.NewGateway(conn, dbc)
 	gSrv.Start()
 
 	// For now just get stuck on stop channel, later add signal processing

@@ -1,29 +1,60 @@
 package dbclient
 
 import (
+	"sync"
+	"time"
+
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
+	"github.com/golang/glog"
 )
 
-// DBClient defines public methods to handle QoE related information in DB
+var (
+	// maxDBRequestTimeout defines a maximum wait time for db worker to retrieve QoE information
+	maxDBRequestTimeout = time.Millisecond * 2000
+)
+
+// DB defines methods to access database
+type DB interface {
+	Get(*pbapi.Qoe) *pbapi.Qoe
+}
+
+// DBClient defines public method for gRPC server to handle QoE related requests
 type DBClient interface {
 	GetQoE(*pbapi.RequestQoE, chan pbapi.ResponseQoE)
 }
 
+// dbClient defines the database client, it stores the databse interface,
+// the database interface can be either a real database or a mock database used in unit testing.
 type dbClient struct {
+	db DB
 }
 
-func (db *dbClient) GetQoE(reqQoes *pbapi.RequestQoE, result chan pbapi.ResponseQoE) {
-	replQoes := pbapi.ResponseQoE{
-		Qoes: reqQoes.Qoes,
+// GetQoE is function called by gRPC client to retrieve QoE related information from the database.
+// The request can carry multiple QoE entries. FOr each entry a go routine function is invoked
+// which calls DB interface Get.
+func (dbc *dbClient) GetQoE(reqQoes *pbapi.RequestQoE, result chan pbapi.ResponseQoE) {
+	// Initializing reply
+	replQoEs := pbapi.ResponseQoE{}
+	replQoEs.Qoes = make(map[int32]*pbapi.Qoe)
+	// Wait group will be used to wait until all workers are done
+	// In case worker hangs, grpc client's context will destroy it when
+	// timeout expires.
+	var wg sync.WaitGroup
+	for i, req := range reqQoes.Qoes {
+		wg.Add(1)
+		go func(i int32, req *pbapi.Qoe) {
+			replQoEs.Qoes[i] = dbc.db.Get(req)
+			wg.Done()
+		}(i, req)
 	}
-	// Simulating hung process
-	// time.Sleep(maxRequestProcessTime)
-
-	result <- replQoes
+	wg.Wait()
+	glog.Infof("Sending %d QoE back to gRPC server", len(replQoEs.Qoes))
+	result <- replQoEs
 }
 
 // NewDBClient return  a new instance of a DB client
-func NewDBClient() DBClient {
-
-	return &dbClient{}
+func NewDBClient(db DB) DBClient {
+	return &dbClient{
+		db: db,
+	}
 }

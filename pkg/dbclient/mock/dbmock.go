@@ -1,12 +1,13 @@
 package mock
 
 import (
+	"bytes"
 	"net"
 	"sync"
 	"time"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
-	"github.com/golang/glog"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 )
 
 var (
@@ -14,46 +15,31 @@ var (
 	maxDBRequestTimeout = time.Millisecond * 2000
 )
 
-// DBClient defines public methods to handle QoE related information in DB
-type DBClient interface {
-	GetQoE(*pbapi.RequestQoE, chan pbapi.ResponseQoE)
+type dbMock struct {
+	mu    sync.Mutex
+	store map[int32]*pbapi.Qoe
 }
 
-type dbcMock struct {
-	mu            sync.Mutex
-	store         map[int32]*pbapi.Qoe
-	randomDelay   bool
-	randomFailure bool
-}
-
-func (dbc *dbcMock) worker(qoe *pbapi.Qoe) *pbapi.Qoe {
-	repl := qoe
-	repl.Err = pbapi.GatewayErrors_OK
+func (db *dbMock) Get(req *pbapi.Qoe) *pbapi.Qoe {
+	repl := &pbapi.Qoe{}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	for _, qoe := range db.store {
+		if bytes.Compare(req.Src.Address, qoe.Src.Address) == 0 && bytes.Compare(req.Dst.Address, qoe.Dst.Address) == 0 {
+			// TODO add more precise calculation of latency with considerring variation.
+			if req.Qoe.Latency.Value == qoe.Qoe.Latency.Value {
+				repl := qoe
+				repl.Err = pbapi.GatewayErrors_OK
+				return repl
+			}
+		}
+	}
+	repl.Err = pbapi.GatewayErrors_ENOENT
 
 	return repl
 }
 
-func (dbc *dbcMock) GetQoE(reqQoes *pbapi.RequestQoE, result chan pbapi.ResponseQoE) {
-	// Initializing reply
-	replQoEs := pbapi.ResponseQoE{}
-	replQoEs.Qoes = make(map[int32]*pbapi.Qoe)
-	// Wait group will be used to wait until all workers are done
-	// In case worker hangs, grpc client's context will destroy it when
-	// timeout expires.
-	var wg sync.WaitGroup
-	for i, req := range reqQoes.Qoes {
-		wg.Add(1)
-		go func(i int32, req *pbapi.Qoe) {
-			replQoEs.Qoes[i] = dbc.worker(req)
-			wg.Done()
-		}(i, req)
-	}
-	wg.Wait()
-	glog.Infof("Sending %d QoE back to gRPC server", len(replQoEs.Qoes))
-	result <- replQoEs
-}
-
-func (dbc *dbcMock) loadTestData() {
+func (db *dbMock) loadTestData() {
 	// TODO Consider more flexible way to load test data
 	qoe := map[int32]*pbapi.Qoe{
 		0: &pbapi.Qoe{
@@ -166,19 +152,17 @@ func (dbc *dbcMock) loadTestData() {
 		},
 		// TODO Add more cases
 	}
-	dbc.mu.Lock()
-	defer dbc.mu.Unlock()
-	dbc.store = qoe
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.store = qoe
 }
 
-// NewDBClient return  a new instance of a DB client
-func NewMockDBClient(randomDelay, randomFailure bool) DBClient {
-	dbc := dbcMock{
-		store:         make(map[int32]*pbapi.Qoe),
-		randomDelay:   randomDelay,
-		randomFailure: randomFailure,
+// NewMockDB return  a new instance of a DB client
+func NewMockDB() dbclient.DB {
+	db := dbMock{
+		store: make(map[int32]*pbapi.Qoe),
 	}
-	dbc.loadTestData()
+	db.loadTestData()
 
-	return &dbc
+	return &db
 }

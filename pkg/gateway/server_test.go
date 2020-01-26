@@ -9,10 +9,11 @@ import (
 	"time"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient/mock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/test/bufconn"
-	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient/mock"
 )
 
 const bufSize = 4096 * 1024
@@ -23,7 +24,8 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	flag.Set("logtostderr", "true")
 	conn = bufconn.Listen(bufSize)
-	dbc := mock.NewMockDBClient(false,false)
+	db := mock.NewMockDB()
+	dbc := dbclient.NewDBClient(db)
 	gSrv := NewGateway(conn, dbc)
 	gSrv.Start()
 	os.Exit(m.Run())
@@ -103,7 +105,7 @@ func TestClientRequestQoE(t *testing.T) {
 					},
 					Qoe: &pbapi.QoeParameters{
 						Latency: &pbapi.Latency{
-							Value:     200,
+							Value:     20,
 							Variation: 10,
 						},
 					},
@@ -135,7 +137,7 @@ func TestClientRequestQoE(t *testing.T) {
 		for key, qoe := range resp.Qoes {
 			// First check if expected error state matches to the one returned by the server
 			if qoe.Err != tt.qoeRequest[key].Err {
-				t.Fatalf("test \"%s\" failed, expected error: %+v but got %+v", tt.name, tt.qoeRequest[key].Err ,qoe.Err)
+				t.Fatalf("test \"%s\" failed, expected error: %+v but got %+v", tt.name, tt.qoeRequest[key].Err, qoe.Err)
 			}
 			// If error was expected, then nothing else left to do, on to the next item.
 			if qoe.Err != pbapi.GatewayErrors_OK {

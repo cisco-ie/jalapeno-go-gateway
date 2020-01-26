@@ -2,6 +2,7 @@ package mock
 
 import (
 	"bytes"
+	"context"
 	"net"
 	"sync"
 	"time"
@@ -20,25 +21,32 @@ type dbMock struct {
 	store map[int32]*pbapi.Qoe
 }
 
-func (db *dbMock) Get(req *pbapi.Qoe) *pbapi.Qoe {
+// Get is required method by DB interface, it takes requested QoE and searches through
+// stored in memory map with mock entries. If found, it returns the value, otherwise return ENOENT error.
+func (db *dbMock) Get(ctx context.Context, req *pbapi.Qoe, ch chan *pbapi.Qoe) {
 	repl := &pbapi.Qoe{}
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
+	// Simulating hung DB's Get routine
+	// time.Sleep(time.Second *3)
+
 	for _, qoe := range db.store {
 		if bytes.Compare(req.Src.Address, qoe.Src.Address) == 0 && bytes.Compare(req.Dst.Address, qoe.Dst.Address) == 0 {
 			// TODO add more precise calculation of latency with considerring variation.
 			if req.Qoe.Latency.Value == qoe.Qoe.Latency.Value {
 				repl := qoe
 				repl.Err = pbapi.GatewayErrors_OK
-				return repl
+				ch <- repl
+				return
 			}
 		}
 	}
 	repl.Err = pbapi.GatewayErrors_ENOENT
-
-	return repl
+	ch <- repl
 }
 
+// loadTestData loads test data into the mock DB.
 func (db *dbMock) loadTestData() {
 	// TODO Consider more flexible way to load test data
 	qoe := map[int32]*pbapi.Qoe{
@@ -57,7 +65,6 @@ func (db *dbMock) loadTestData() {
 					Variation: 10,
 				},
 			},
-			// here is used as "expected" label stack, the server portion will override label stack with actual value
 			Label: []uint32{10024, 20024},
 		},
 		1: &pbapi.Qoe{
@@ -75,7 +82,6 @@ func (db *dbMock) loadTestData() {
 					Variation: 10,
 				},
 			},
-			// here is used as "expected" label stack, the server portion will override label stack with actual value
 			Label: []uint32{31024, 41024},
 		},
 		2: &pbapi.Qoe{
@@ -93,7 +99,6 @@ func (db *dbMock) loadTestData() {
 					Variation: 10,
 				},
 			},
-			// here is used as "expected" label stack, the server portion will override label stack with actual value
 			Label: []uint32{12024, 22024},
 		},
 		3: &pbapi.Qoe{
@@ -111,7 +116,6 @@ func (db *dbMock) loadTestData() {
 					Variation: 10,
 				},
 			},
-			// here is used as "expected" label stack, the server portion will override label stack with actual value
 			Label: []uint32{33024, 43024},
 		},
 		4: &pbapi.Qoe{
@@ -129,7 +133,6 @@ func (db *dbMock) loadTestData() {
 					Variation: 10,
 				},
 			},
-			// here is used as "expected" label stack, the server portion will override label stack with actual value
 			Label: []uint32{34024, 44024},
 		},
 		5: &pbapi.Qoe{
@@ -147,10 +150,8 @@ func (db *dbMock) loadTestData() {
 					Variation: 10,
 				},
 			},
-			// here is used as "expected" label stack, the server portion will override label stack with actual value
 			Label: []uint32{35024, 45024},
 		},
-		// TODO Add more cases
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()

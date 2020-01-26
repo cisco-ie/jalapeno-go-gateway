@@ -2,15 +2,15 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"math"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
 
-	"github.com/cisco-ie/jalapeno-go-gateway/pkg/gateway"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient/mock"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/gateway"
 	"github.com/golang/glog"
 )
 
@@ -23,8 +23,6 @@ const (
 func main() {
 	flag.Parse()
 	flag.Set("logtostderr", "true")
-
-	fmt.Printf("Gateway...\n")
 
 	// Getting port for gRPC server to listen on, from environment varialbe
 	// GATEWAY_PORT
@@ -39,12 +37,16 @@ func main() {
 		glog.Warningf("env variable \"GATEWAY_PORT\" containes an invalid value %s, using default Gateway port instead: %s", strPort, defaultGatewayPort)
 		srvPort, _ = strconv.Atoi(defaultGatewayPort)
 	}
+	// The value of port cannot be more than max uint16
 	if srvPort == 0 || srvPort > math.MaxUint16 {
 		glog.Warningf("env variable \"GATEWAY_PORT\" containes an invalid value %d, using default Gateway port instead: %s\n", srvPort, defaultGatewayPort)
 		srvPort, _ = strconv.Atoi(defaultGatewayPort)
 	}
+	// Get interface to the database
+	// TODO, since it is not clear which database will be used, for now use mock DB
+	db := mock.NewMockDB()
 	// Initialize DB client
-    dbc := dbclient.NewDBClient()
+	dbc := dbclient.NewDBClient(db)
 	// Initialize gRPC server
 	conn, err := net.Listen("tcp", ":"+strPort)
 	if err != nil {

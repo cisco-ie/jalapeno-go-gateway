@@ -1,6 +1,7 @@
 package dbclient
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -15,12 +16,12 @@ var (
 
 // DB defines methods to access database
 type DB interface {
-	Get(*pbapi.Qoe) *pbapi.Qoe
+	Get(context.Context, *pbapi.Qoe, chan *pbapi.Qoe)
 }
 
 // DBClient defines public method for gRPC server to handle QoE related requests
 type DBClient interface {
-	GetQoE(*pbapi.RequestQoE, chan pbapi.ResponseQoE)
+	GetQoE(context.Context, *pbapi.RequestQoE, chan *pbapi.ResponseQoE)
 }
 
 // dbClient defines the database client, it stores the databse interface,
@@ -32,7 +33,7 @@ type dbClient struct {
 // GetQoE is function called by gRPC client to retrieve QoE related information from the database.
 // The request can carry multiple QoE entries. FOr each entry a go routine function is invoked
 // which calls DB interface Get.
-func (dbc *dbClient) GetQoE(reqQoes *pbapi.RequestQoE, result chan pbapi.ResponseQoE) {
+func (dbc *dbClient) GetQoE(ctx context.Context, reqQoes *pbapi.RequestQoE, result chan *pbapi.ResponseQoE) {
 	// Initializing reply
 	replQoEs := pbapi.ResponseQoE{}
 	replQoEs.Qoes = make(map[int32]*pbapi.Qoe)
@@ -42,14 +43,31 @@ func (dbc *dbClient) GetQoE(reqQoes *pbapi.RequestQoE, result chan pbapi.Respons
 	var wg sync.WaitGroup
 	for i, req := range reqQoes.Qoes {
 		wg.Add(1)
-		go func(i int32, req *pbapi.Qoe) {
-			replQoEs.Qoes[i] = dbc.db.Get(req)
-			wg.Done()
-		}(i, req)
+		go func(ctx context.Context, i int32, req *pbapi.Qoe) {
+			defer wg.Done()
+			// Make channel for DB's Get method to return found data
+			ch := make(chan *pbapi.Qoe)
+			// Starting DB's Get as a go routine and wait either for a result
+			// received from ch channel or a context timeout event.
+			go dbc.db.Get(ctx, req, ch)
+			for {
+				select {
+				case repl := <-ch:
+					// Result received, storing it in the reply map with the right key
+					replQoEs.Qoes[i] = repl
+					return
+				case <-ctx.Done():
+					// Context was canceled, returning to prevent go routine leaking.
+					return
+				}
+			}
+
+		}(ctx, i, req)
 	}
+	// Wait for all go routine either to complete or the context to timeout
 	wg.Wait()
 	glog.Infof("Sending %d QoE back to gRPC server", len(replQoEs.Qoes))
-	result <- replQoEs
+	result <- &replQoEs
 }
 
 // NewDBClient return  a new instance of a DB client

@@ -72,13 +72,13 @@ func NewGateway(conn net.Listener, dbc dbclient.DBClient) Gateway {
 // processQoERequest start DB client and wait for either of 2 events, result comming back from a result channel
 // or a context timing out.
 func (g *gateway) processQoERequest(ctx context.Context, reqQoEs *pbapi.RequestQoE) (*pbapi.ResponseQoE, error) {
-	var replQoEs pbapi.ResponseQoE
-	result := make(chan pbapi.ResponseQoE)
+	var replQoEs *pbapi.ResponseQoE
+	result := make(chan *pbapi.ResponseQoE)
 	// Requesting DB client to retrieve requested infotmation
-	go g.dbc.GetQoE(reqQoEs, result)
+	go g.dbc.GetQoE(ctx, reqQoEs, result)
 	select {
 	case replQoEs = <-result:
-		return &replQoEs, nil
+		return replQoEs, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}

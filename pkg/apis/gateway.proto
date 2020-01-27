@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-import "google/protobuf/any.proto";
-
 package apis;
 
 // EndpointType defines supported endpoints' types
@@ -78,11 +76,11 @@ message RouteDistinguisherFourOctetAS {
 // RequestVPNLabel defines the rpc message which is sent by the client to the Gateway
 // to request Layer3 VPN label for the corresponding Route Distinguisher.
 message RequestVPNLabel {
-  // Route Distinguisher must be one of
-  // RouteDistinguisherTwoOctetAS,
-  // RouteDistinguisherIPAddressAS,
-  // or RouteDistinguisherFourOctetAS.
-  google.protobuf.Any rd = 1;
+  oneof rd_type {
+    RouteDistinguisherTwoOctetAS rd2as = 1;
+    RouteDistinguisherIPAddress rdIPAddr = 2;
+    RouteDistinguisherFourOctetAS rd4as = 3;
+  } 
 }
 // ResponseVPNLabel defines the rpc message which is sent by the Gateway to the client
 // in response to RequestVPNLabel. If VPN label is not found, the error will be returned.

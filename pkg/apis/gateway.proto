@@ -89,7 +89,7 @@ message ResponseVPNLabel {
     GatewayErrors err = 2;
 }
 
-service GatawayServices {
+service GatewayService {
     // API to request specified Quality of Experience
     rpc QoE(RequestQoE) returns (ResponseQoE); 
     // API to request L3 VPN label for specified VRF, identified by Route Distinguisher

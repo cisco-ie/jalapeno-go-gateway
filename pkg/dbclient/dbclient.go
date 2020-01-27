@@ -16,7 +16,7 @@ var (
 
 // DB defines methods to access database
 type DB interface {
-	Get(context.Context, *pbapi.Qoe, chan *pbapi.Qoe)
+	GetQoE(context.Context, *pbapi.Qoe, chan *pbapi.Qoe)
 }
 
 // DBClient defines public method for gRPC server to handle QoE related requests
@@ -49,7 +49,7 @@ func (dbc *dbClient) GetQoE(ctx context.Context, reqQoes *pbapi.RequestQoE, resu
 			ch := make(chan *pbapi.Qoe)
 			// Starting DB's Get as a go routine and wait either for a result
 			// received from ch channel or a context timeout event.
-			go dbc.db.Get(ctx, req, ch)
+			go dbc.db.GetQoE(ctx, req, ch)
 			for {
 				select {
 				case repl := <-ch:

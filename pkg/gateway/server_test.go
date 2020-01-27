@@ -129,7 +129,7 @@ func TestClientRequestQoE(t *testing.T) {
 			t.Fatalf("failed to dial bufnet with error: %v", err)
 		}
 		defer conn.Close()
-		client := pbapi.NewQoEServiceClient(conn)
+		client := pbapi.NewGatawayServicesClient(conn)
 		resp, err := client.QoE(ctx, &pbapi.RequestQoE{Qoes: tt.qoeRequest})
 		if err != nil {
 			t.Fatalf("QoE request failed with error: %v", err)

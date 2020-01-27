@@ -39,6 +39,10 @@ func (g *gateway) Stop() {
 	g.gSrv.Stop()
 }
 
+func (g *gateway) VPN(ctx context.Context, reqVPN *pbapi.RequestVPNLabel) (*pbapi.ResponseVPNLabel, error) {
+	return &pbapi.ResponseVPNLabel{}, nil
+}
+
 func (g *gateway) QoE(ctx context.Context, reqQoes *pbapi.RequestQoE) (*pbapi.ResponseQoE, error) {
 	peer, ok := peer.FromContext(ctx)
 	if ok {
@@ -63,7 +67,7 @@ func NewGateway(conn net.Listener, dbc dbclient.DBClient) Gateway {
 		gSrv: grpc.NewServer([]grpc.ServerOption{}...),
 		dbc: dbc,
 	}
-	pbapi.RegisterQoEServiceServer(gSrv.gSrv, &gSrv)
+	pbapi.RegisterGatawayServicesServer(gSrv.gSrv, &gSrv)
 
 	return &gSrv
 

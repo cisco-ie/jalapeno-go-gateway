@@ -17,13 +17,16 @@ var (
 )
 
 type dbMock struct {
-	mu    sync.Mutex
-	store map[int32]*pbapi.Qoe
+	mu       sync.Mutex
+	qoe      map[int32]*pbapi.Qoe
+	vpnRD2AS map[bpapi.RouteDistinguisherTwoOctetAS][]uint32
+	vpnRD4AS map[bpapi.RouteDistinguisherFourOctetAS][]uint32
+	vpnRDIP  map[bpapi.RouteDistinguisherIPAddress][]uint32
 }
 
-// Get is required method by DB interface, it takes requested QoE and searches through
+// GetQoE is required method by DB interface, it takes requested QoE and searches through
 // stored in memory map with mock entries. If found, it returns the value, otherwise return ENOENT error.
-func (db *dbMock) Get(ctx context.Context, req *pbapi.Qoe, ch chan *pbapi.Qoe) {
+func (db *dbMock) GetQoE(ctx context.Context, req *pbapi.Qoe, ch chan *pbapi.Qoe) {
 	repl := &pbapi.Qoe{}
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -31,7 +34,7 @@ func (db *dbMock) Get(ctx context.Context, req *pbapi.Qoe, ch chan *pbapi.Qoe) {
 	// Simulating hung DB's Get routine
 	// time.Sleep(time.Second *3)
 
-	for _, qoe := range db.store {
+	for _, qoe := range db.qoe {
 		if bytes.Compare(req.Src.Address, qoe.Src.Address) == 0 && bytes.Compare(req.Dst.Address, qoe.Dst.Address) == 0 {
 			// TODO add more precise calculation of latency with considerring variation.
 			if req.Qoe.Latency.Value == qoe.Qoe.Latency.Value {
@@ -155,13 +158,13 @@ func (db *dbMock) loadTestData() {
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	db.store = qoe
+	db.qoe = qoe
 }
 
 // NewMockDB return  a new instance of a DB client
 func NewMockDB() dbclient.DB {
 	db := dbMock{
-		store: make(map[int32]*pbapi.Qoe),
+		qoe: make(map[int32]*pbapi.Qoe),
 	}
 	db.loadTestData()
 

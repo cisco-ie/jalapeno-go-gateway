@@ -7,6 +7,7 @@ import (
 	context "context"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -96,8 +97,10 @@ func (GatewayErrors) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_f1a937782ebbded5, []int{1}
 }
 
-// endpoint is expressed by it is type and the value of endpoint, whether it is
-// address, or SR SID is stored in byte array.
+// endpoint is an object defining a source or a destination of a communication path.
+// The type of the endpoint is defined by EndpointType, it can be ipv4, ipv6 addresses or segment routing SIDs etc.
+// The list of supported endpoint types may be extended in future.
+// The address of endpoint is stored in a slice of bytes and should be decoded according to the endpoint type.
 type Endpoint struct {
 	Type                 EndpointType `protobuf:"varint,1,opt,name=type,proto3,enum=apis.EndpointType" json:"type,omitempty"`
 	Address              []byte       `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
@@ -390,6 +393,246 @@ func (m *ResponseQoE) GetQoes() map[int32]*Qoe {
 	return nil
 }
 
+// Borrowed from gobgp project
+//
+// Route Distinguisher is expressed by 2 bytes Autonomous System
+type RouteDistinguisherTwoOctetAS struct {
+	Admin                uint32   `protobuf:"varint,1,opt,name=admin,proto3" json:"admin,omitempty"`
+	Assigned             uint32   `protobuf:"varint,2,opt,name=assigned,proto3" json:"assigned,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RouteDistinguisherTwoOctetAS) Reset()         { *m = RouteDistinguisherTwoOctetAS{} }
+func (m *RouteDistinguisherTwoOctetAS) String() string { return proto.CompactTextString(m) }
+func (*RouteDistinguisherTwoOctetAS) ProtoMessage()    {}
+func (*RouteDistinguisherTwoOctetAS) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1a937782ebbded5, []int{6}
+}
+
+func (m *RouteDistinguisherTwoOctetAS) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RouteDistinguisherTwoOctetAS.Unmarshal(m, b)
+}
+func (m *RouteDistinguisherTwoOctetAS) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RouteDistinguisherTwoOctetAS.Marshal(b, m, deterministic)
+}
+func (m *RouteDistinguisherTwoOctetAS) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteDistinguisherTwoOctetAS.Merge(m, src)
+}
+func (m *RouteDistinguisherTwoOctetAS) XXX_Size() int {
+	return xxx_messageInfo_RouteDistinguisherTwoOctetAS.Size(m)
+}
+func (m *RouteDistinguisherTwoOctetAS) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteDistinguisherTwoOctetAS.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteDistinguisherTwoOctetAS proto.InternalMessageInfo
+
+func (m *RouteDistinguisherTwoOctetAS) GetAdmin() uint32 {
+	if m != nil {
+		return m.Admin
+	}
+	return 0
+}
+
+func (m *RouteDistinguisherTwoOctetAS) GetAssigned() uint32 {
+	if m != nil {
+		return m.Assigned
+	}
+	return 0
+}
+
+// Route Distinguisher is expressed by IP address
+type RouteDistinguisherIPAddress struct {
+	Admin                string   `protobuf:"bytes,1,opt,name=admin,proto3" json:"admin,omitempty"`
+	Assigned             uint32   `protobuf:"varint,2,opt,name=assigned,proto3" json:"assigned,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RouteDistinguisherIPAddress) Reset()         { *m = RouteDistinguisherIPAddress{} }
+func (m *RouteDistinguisherIPAddress) String() string { return proto.CompactTextString(m) }
+func (*RouteDistinguisherIPAddress) ProtoMessage()    {}
+func (*RouteDistinguisherIPAddress) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1a937782ebbded5, []int{7}
+}
+
+func (m *RouteDistinguisherIPAddress) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RouteDistinguisherIPAddress.Unmarshal(m, b)
+}
+func (m *RouteDistinguisherIPAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RouteDistinguisherIPAddress.Marshal(b, m, deterministic)
+}
+func (m *RouteDistinguisherIPAddress) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteDistinguisherIPAddress.Merge(m, src)
+}
+func (m *RouteDistinguisherIPAddress) XXX_Size() int {
+	return xxx_messageInfo_RouteDistinguisherIPAddress.Size(m)
+}
+func (m *RouteDistinguisherIPAddress) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteDistinguisherIPAddress.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteDistinguisherIPAddress proto.InternalMessageInfo
+
+func (m *RouteDistinguisherIPAddress) GetAdmin() string {
+	if m != nil {
+		return m.Admin
+	}
+	return ""
+}
+
+func (m *RouteDistinguisherIPAddress) GetAssigned() uint32 {
+	if m != nil {
+		return m.Assigned
+	}
+	return 0
+}
+
+// Route Distinguisher is expressed by 4 bytes Autonomous System
+type RouteDistinguisherFourOctetAS struct {
+	Admin                uint32   `protobuf:"varint,1,opt,name=admin,proto3" json:"admin,omitempty"`
+	Assigned             uint32   `protobuf:"varint,2,opt,name=assigned,proto3" json:"assigned,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RouteDistinguisherFourOctetAS) Reset()         { *m = RouteDistinguisherFourOctetAS{} }
+func (m *RouteDistinguisherFourOctetAS) String() string { return proto.CompactTextString(m) }
+func (*RouteDistinguisherFourOctetAS) ProtoMessage()    {}
+func (*RouteDistinguisherFourOctetAS) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1a937782ebbded5, []int{8}
+}
+
+func (m *RouteDistinguisherFourOctetAS) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RouteDistinguisherFourOctetAS.Unmarshal(m, b)
+}
+func (m *RouteDistinguisherFourOctetAS) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RouteDistinguisherFourOctetAS.Marshal(b, m, deterministic)
+}
+func (m *RouteDistinguisherFourOctetAS) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteDistinguisherFourOctetAS.Merge(m, src)
+}
+func (m *RouteDistinguisherFourOctetAS) XXX_Size() int {
+	return xxx_messageInfo_RouteDistinguisherFourOctetAS.Size(m)
+}
+func (m *RouteDistinguisherFourOctetAS) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteDistinguisherFourOctetAS.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteDistinguisherFourOctetAS proto.InternalMessageInfo
+
+func (m *RouteDistinguisherFourOctetAS) GetAdmin() uint32 {
+	if m != nil {
+		return m.Admin
+	}
+	return 0
+}
+
+func (m *RouteDistinguisherFourOctetAS) GetAssigned() uint32 {
+	if m != nil {
+		return m.Assigned
+	}
+	return 0
+}
+
+// RequestVPNLabel defines the rpc message which is sent by the client to the Gateway
+// to request Layer3 VPN label for the corresponding Route Distinguisher.
+type RequestVPNLabel struct {
+	// Route Distinguisher must be one of
+	// RouteDistinguisherTwoOctetAS,
+	// RouteDistinguisherIPAddressAS,
+	// or RouteDistinguisherFourOctetAS.
+	Rd                   *any.Any `protobuf:"bytes,1,opt,name=rd,proto3" json:"rd,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RequestVPNLabel) Reset()         { *m = RequestVPNLabel{} }
+func (m *RequestVPNLabel) String() string { return proto.CompactTextString(m) }
+func (*RequestVPNLabel) ProtoMessage()    {}
+func (*RequestVPNLabel) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1a937782ebbded5, []int{9}
+}
+
+func (m *RequestVPNLabel) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RequestVPNLabel.Unmarshal(m, b)
+}
+func (m *RequestVPNLabel) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RequestVPNLabel.Marshal(b, m, deterministic)
+}
+func (m *RequestVPNLabel) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequestVPNLabel.Merge(m, src)
+}
+func (m *RequestVPNLabel) XXX_Size() int {
+	return xxx_messageInfo_RequestVPNLabel.Size(m)
+}
+func (m *RequestVPNLabel) XXX_DiscardUnknown() {
+	xxx_messageInfo_RequestVPNLabel.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RequestVPNLabel proto.InternalMessageInfo
+
+func (m *RequestVPNLabel) GetRd() *any.Any {
+	if m != nil {
+		return m.Rd
+	}
+	return nil
+}
+
+// ResponseVPNLabel defines the rpc message which is sent by the Gateway to the client
+// in response to RequestVPNLabel. If VPN label is not found, the error will be returned.
+type ResponseVPNLabel struct {
+	Label                []uint32      `protobuf:"varint,1,rep,packed,name=label,proto3" json:"label,omitempty"`
+	Err                  GatewayErrors `protobuf:"varint,2,opt,name=err,proto3,enum=apis.GatewayErrors" json:"err,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *ResponseVPNLabel) Reset()         { *m = ResponseVPNLabel{} }
+func (m *ResponseVPNLabel) String() string { return proto.CompactTextString(m) }
+func (*ResponseVPNLabel) ProtoMessage()    {}
+func (*ResponseVPNLabel) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1a937782ebbded5, []int{10}
+}
+
+func (m *ResponseVPNLabel) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ResponseVPNLabel.Unmarshal(m, b)
+}
+func (m *ResponseVPNLabel) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ResponseVPNLabel.Marshal(b, m, deterministic)
+}
+func (m *ResponseVPNLabel) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseVPNLabel.Merge(m, src)
+}
+func (m *ResponseVPNLabel) XXX_Size() int {
+	return xxx_messageInfo_ResponseVPNLabel.Size(m)
+}
+func (m *ResponseVPNLabel) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseVPNLabel.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ResponseVPNLabel proto.InternalMessageInfo
+
+func (m *ResponseVPNLabel) GetLabel() []uint32 {
+	if m != nil {
+		return m.Label
+	}
+	return nil
+}
+
+func (m *ResponseVPNLabel) GetErr() GatewayErrors {
+	if m != nil {
+		return m.Err
+	}
+	return GatewayErrors_OK
+}
+
 func init() {
 	proto.RegisterEnum("apis.EndpointType", EndpointType_name, EndpointType_value)
 	proto.RegisterEnum("apis.GatewayErrors", GatewayErrors_name, GatewayErrors_value)
@@ -401,43 +644,58 @@ func init() {
 	proto.RegisterMapType((map[int32]*Qoe)(nil), "apis.RequestQoE.QoesEntry")
 	proto.RegisterType((*ResponseQoE)(nil), "apis.ResponseQoE")
 	proto.RegisterMapType((map[int32]*Qoe)(nil), "apis.ResponseQoE.QoesEntry")
+	proto.RegisterType((*RouteDistinguisherTwoOctetAS)(nil), "apis.RouteDistinguisherTwoOctetAS")
+	proto.RegisterType((*RouteDistinguisherIPAddress)(nil), "apis.RouteDistinguisherIPAddress")
+	proto.RegisterType((*RouteDistinguisherFourOctetAS)(nil), "apis.RouteDistinguisherFourOctetAS")
+	proto.RegisterType((*RequestVPNLabel)(nil), "apis.RequestVPNLabel")
+	proto.RegisterType((*ResponseVPNLabel)(nil), "apis.ResponseVPNLabel")
 }
 
 func init() { proto.RegisterFile("gateway.proto", fileDescriptor_f1a937782ebbded5) }
 
 var fileDescriptor_f1a937782ebbded5 = []byte{
-	// 482 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x93, 0x51, 0x8f, 0x12, 0x31,
-	0x10, 0xc7, 0x6f, 0xe9, 0x72, 0x1c, 0xc3, 0x41, 0xd6, 0xca, 0xc3, 0x06, 0x4d, 0x24, 0x9b, 0xa8,
-	0x84, 0x07, 0x4c, 0xd0, 0x18, 0x34, 0xf1, 0xc5, 0xd0, 0x28, 0x9e, 0xb2, 0x52, 0x38, 0x7d, 0x34,
-	0x3d, 0x98, 0x18, 0x22, 0x6e, 0x97, 0xb6, 0x87, 0xd9, 0x37, 0xe3, 0x07, 0xf2, 0x33, 0x9a, 0xb6,
-	0x0b, 0x27, 0xea, 0xab, 0x6f, 0x9d, 0xce, 0x6f, 0x66, 0xfe, 0xf3, 0xef, 0x2e, 0x34, 0x3f, 0x0b,
-	0x83, 0xdf, 0x44, 0x31, 0xc8, 0x95, 0x34, 0x92, 0x86, 0x22, 0x5f, 0xeb, 0xe4, 0x2d, 0x9c, 0x61,
-	0xb6, 0xca, 0xe5, 0x3a, 0x33, 0xf4, 0x01, 0x84, 0xa6, 0xc8, 0x31, 0x0e, 0xba, 0x41, 0xaf, 0x35,
-	0xa4, 0x03, 0x0b, 0x0c, 0x58, 0x99, 0x5d, 0x14, 0x39, 0x72, 0x97, 0xa7, 0x31, 0xd4, 0xc4, 0x6a,
-	0xa5, 0x50, 0xeb, 0xb8, 0xd2, 0x0d, 0x7a, 0xe7, 0x7c, 0x1f, 0x26, 0x2f, 0xa0, 0xb6, 0x11, 0x06,
-	0xb3, 0x65, 0x41, 0xdb, 0x50, 0xdd, 0x89, 0xcd, 0xb5, 0xef, 0x56, 0xe5, 0x3e, 0xa0, 0x77, 0xa1,
-	0xbe, 0x13, 0x6a, 0x2d, 0xcc, 0x5a, 0x66, 0xae, 0xb8, 0xca, 0x6f, 0x2e, 0x92, 0x67, 0xd0, 0xda,
-	0x4a, 0xfc, 0x94, 0x0b, 0x25, 0xbe, 0xa2, 0x41, 0xa5, 0xe9, 0xc3, 0x43, 0x43, 0xd7, 0xa7, 0x31,
-	0x6c, 0x7a, 0x55, 0xe5, 0x25, 0xdf, 0x67, 0x93, 0x9f, 0x01, 0x90, 0xad, 0x44, 0xda, 0x05, 0xa2,
-	0xd5, 0xb2, 0x84, 0x5b, 0x1e, 0xde, 0x2f, 0xc8, 0x6d, 0xca, 0x12, 0x2b, 0x6d, 0xdc, 0xf0, 0x7f,
-	0x10, 0x2b, 0x6d, 0x7d, 0xb0, 0xad, 0x62, 0xe2, 0x88, 0xb6, 0x27, 0x8e, 0x75, 0x71, 0x37, 0xab,
-	0x0d, 0xd5, 0x8d, 0xb8, 0xc2, 0x4d, 0x1c, 0x76, 0x49, 0xaf, 0xc9, 0x7d, 0x40, 0xef, 0x03, 0x41,
-	0xa5, 0xe2, 0xaa, 0x33, 0xf1, 0xb6, 0xaf, 0x7e, 0xe5, 0x9d, 0x67, 0x4a, 0x49, 0x5b, 0x8c, 0x4a,
-	0x25, 0xdf, 0x03, 0x00, 0x8e, 0xdb, 0x6b, 0xd4, 0x66, 0x26, 0x19, 0x1d, 0x40, 0xb8, 0x95, 0xa8,
-	0xe3, 0xa0, 0x4b, 0x7a, 0x8d, 0x61, 0xc7, 0x97, 0xdd, 0xe4, 0x07, 0x33, 0x89, 0x9a, 0x65, 0x46,
-	0x15, 0xdc, 0x71, 0x9d, 0x97, 0x50, 0x3f, 0x5c, 0xd1, 0x08, 0xc8, 0x17, 0x2c, 0x4a, 0xa7, 0xed,
-	0x91, 0xde, 0xdb, 0xbb, 0xef, 0xd7, 0xac, 0x1f, 0x96, 0x28, 0x1f, 0xe2, 0x79, 0x65, 0x14, 0x24,
-	0x3f, 0x02, 0x68, 0x70, 0xd4, 0xb9, 0xcc, 0x34, 0x5a, 0x0d, 0x8f, 0x8e, 0x34, 0xdc, 0xd9, 0x6b,
-	0x38, 0x00, 0xff, 0x43, 0x44, 0x7f, 0x04, 0xe7, 0xbf, 0x7f, 0x62, 0xb4, 0x01, 0xb5, 0xcb, 0xe9,
-	0xc5, 0x34, 0xfd, 0x38, 0x8d, 0x4e, 0xe8, 0x19, 0x84, 0x93, 0xf7, 0x1f, 0x9e, 0x44, 0x41, 0x79,
-	0x7a, 0x1a, 0x55, 0x68, 0x0d, 0xc8, 0x7c, 0x32, 0x8e, 0x48, 0xff, 0x0d, 0x34, 0x8f, 0x7c, 0xa5,
-	0xa7, 0x50, 0x49, 0x2f, 0xa2, 0x13, 0x4b, 0xb0, 0x49, 0x1a, 0x05, 0x14, 0xe0, 0x94, 0x4d, 0x53,
-	0x36, 0x5d, 0x44, 0x15, 0xda, 0x84, 0x3a, 0x5b, 0x4c, 0xde, 0xb1, 0x71, 0x7a, 0xb9, 0x88, 0x88,
-	0x0b, 0x5f, 0xa7, 0xf3, 0xc5, 0xd8, 0x0e, 0x0a, 0x87, 0x23, 0x80, 0x99, 0x64, 0x73, 0x54, 0xbb,
-	0xf5, 0x12, 0x69, 0x1f, 0x88, 0xf5, 0x23, 0xfa, 0xf3, 0x15, 0x3a, 0xb7, 0xfe, 0xf2, 0xe4, 0xea,
-	0xd4, 0xfd, 0x4d, 0x8f, 0x7f, 0x05, 0x00, 0x00, 0xff, 0xff, 0x3c, 0x52, 0xa9, 0x9e, 0x5e, 0x03,
-	0x00, 0x00,
+	// 646 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x53, 0x5b, 0x6f, 0xd3, 0x4c,
+	0x10, 0xad, 0xed, 0xa4, 0x69, 0x26, 0x4d, 0xeb, 0x6f, 0xbf, 0x80, 0x4c, 0x5a, 0x44, 0x64, 0x71,
+	0x89, 0xfa, 0xe0, 0x4a, 0xa1, 0x82, 0x82, 0xc4, 0x43, 0x51, 0x4c, 0x09, 0x2d, 0x76, 0xba, 0x49,
+	0xcb, 0x23, 0xda, 0xc6, 0x4b, 0xb0, 0x48, 0xbd, 0xce, 0xee, 0xa6, 0x95, 0xdf, 0x10, 0x3f, 0x88,
+	0xdf, 0x88, 0xbc, 0xbe, 0x94, 0xd0, 0x0a, 0x21, 0x24, 0xde, 0x76, 0x66, 0xce, 0x9c, 0x9d, 0xcb,
+	0x19, 0x68, 0x4e, 0x89, 0xa4, 0x57, 0x24, 0x71, 0x62, 0xce, 0x24, 0x43, 0x15, 0x12, 0x87, 0xa2,
+	0x7d, 0x6f, 0xca, 0xd8, 0x74, 0x46, 0x77, 0x95, 0xef, 0x7c, 0xf1, 0x69, 0x97, 0x44, 0x39, 0xc0,
+	0x3e, 0x86, 0x35, 0x1a, 0x05, 0x31, 0x0b, 0x23, 0x89, 0x1e, 0x43, 0x45, 0x26, 0x31, 0xb5, 0xb4,
+	0x8e, 0xd6, 0xdd, 0xe8, 0x21, 0x27, 0xcd, 0x75, 0xdc, 0x3c, 0x3a, 0x4e, 0x62, 0x8a, 0x55, 0x1c,
+	0x59, 0x50, 0x23, 0x41, 0xc0, 0xa9, 0x10, 0x96, 0xde, 0xd1, 0xba, 0xeb, 0xb8, 0x30, 0xed, 0x57,
+	0x50, 0x9b, 0x11, 0x49, 0xa3, 0x49, 0x82, 0x5a, 0x50, 0xbd, 0x24, 0xb3, 0x45, 0xc6, 0x56, 0xc5,
+	0x99, 0x81, 0xb6, 0xa1, 0x7e, 0x49, 0x78, 0x48, 0x64, 0xc8, 0x22, 0x95, 0x5c, 0xc5, 0xd7, 0x0e,
+	0xfb, 0x05, 0x6c, 0xcc, 0x19, 0xfd, 0x18, 0x13, 0x4e, 0x2e, 0xa8, 0xa4, 0x5c, 0xa0, 0x27, 0x25,
+	0xa1, 0xe2, 0x69, 0xf4, 0x9a, 0x59, 0x55, 0xb9, 0x13, 0x17, 0x51, 0xfb, 0xbb, 0x06, 0xc6, 0x9c,
+	0x51, 0xd4, 0x01, 0x43, 0xf0, 0x49, 0x0e, 0xde, 0xc8, 0xc0, 0x45, 0x83, 0x38, 0x0d, 0xa5, 0x88,
+	0x40, 0x48, 0xf5, 0xf9, 0x2d, 0x88, 0x40, 0xa4, 0x73, 0x48, 0xa9, 0x2c, 0x43, 0x21, 0x5a, 0x19,
+	0x62, 0xb9, 0x2e, 0xac, 0xfe, 0x6a, 0x41, 0x75, 0x46, 0xce, 0xe9, 0xcc, 0xaa, 0x74, 0x8c, 0x6e,
+	0x13, 0x67, 0x06, 0x7a, 0x04, 0x06, 0xe5, 0xdc, 0xaa, 0xaa, 0x21, 0xfe, 0x9f, 0x65, 0x1f, 0x66,
+	0x4b, 0x71, 0x39, 0x67, 0x69, 0x32, 0xe5, 0xdc, 0xfe, 0xaa, 0x01, 0x60, 0x3a, 0x5f, 0x50, 0x21,
+	0x4f, 0x98, 0x8b, 0x1c, 0xa8, 0xcc, 0x19, 0x15, 0x96, 0xd6, 0x31, 0xba, 0x8d, 0x5e, 0x3b, 0x4b,
+	0xbb, 0x8e, 0x3b, 0x27, 0x8c, 0x0a, 0x37, 0x92, 0x3c, 0xc1, 0x0a, 0xd7, 0x7e, 0x0d, 0xf5, 0xd2,
+	0x85, 0x4c, 0x30, 0xbe, 0xd0, 0x24, 0x9f, 0x74, 0xfa, 0x44, 0x0f, 0x8a, 0xe9, 0x67, 0x6d, 0xd6,
+	0xcb, 0x26, 0xf2, 0x45, 0xbc, 0xd4, 0xf7, 0x35, 0xfb, 0x9b, 0x06, 0x0d, 0x4c, 0x45, 0xcc, 0x22,
+	0x41, 0xd3, 0x1a, 0x76, 0x97, 0x6a, 0xd8, 0x2a, 0x6a, 0x28, 0x01, 0xff, 0xa4, 0x88, 0x21, 0x6c,
+	0x63, 0xb6, 0x90, 0xb4, 0x1f, 0x0a, 0x19, 0x46, 0xd3, 0x45, 0x28, 0x3e, 0x53, 0x3e, 0xbe, 0x62,
+	0xfe, 0x44, 0x52, 0x79, 0x30, 0x4a, 0x87, 0x4c, 0x82, 0x8b, 0x30, 0x52, 0xc4, 0x4d, 0x9c, 0x19,
+	0xa8, 0x0d, 0x6b, 0x44, 0x88, 0x70, 0x1a, 0xd1, 0x40, 0xb1, 0x37, 0x71, 0x69, 0xdb, 0x3e, 0x6c,
+	0xdd, 0x64, 0x1c, 0x0c, 0x0f, 0x32, 0x8d, 0x2e, 0x13, 0xd6, 0xff, 0x84, 0xf0, 0x04, 0xee, 0xdf,
+	0x24, 0x7c, 0xc3, 0x16, 0xfc, 0xef, 0x6b, 0x7c, 0x0e, 0x9b, 0xf9, 0x72, 0xcf, 0x86, 0xde, 0xb1,
+	0xd2, 0xcd, 0x43, 0xd0, 0x79, 0x90, 0x0b, 0xb7, 0xe5, 0x64, 0x17, 0xeb, 0x14, 0x17, 0xeb, 0x1c,
+	0x44, 0x09, 0xd6, 0x79, 0xda, 0x9c, 0x59, 0x6c, 0xa4, 0xcc, 0x2c, 0x75, 0xa8, 0xdd, 0xa2, 0x43,
+	0xfd, 0xf7, 0x3a, 0xdc, 0xd9, 0x87, 0xf5, 0x9f, 0x4f, 0x1c, 0x35, 0xa0, 0x76, 0xea, 0x1d, 0x79,
+	0xfe, 0x07, 0xcf, 0x5c, 0x41, 0x6b, 0x50, 0x19, 0x0c, 0xcf, 0xf6, 0x4c, 0x2d, 0x7f, 0x3d, 0x33,
+	0x75, 0x54, 0x03, 0x63, 0x34, 0xe8, 0x9b, 0xc6, 0xce, 0x3b, 0x68, 0x2e, 0xf1, 0xa1, 0x55, 0xd0,
+	0xfd, 0x23, 0x73, 0x25, 0x45, 0xb8, 0x03, 0xdf, 0xd4, 0x10, 0xc0, 0xaa, 0xeb, 0xf9, 0xae, 0x37,
+	0x36, 0x75, 0xd4, 0x84, 0xba, 0x3b, 0x1e, 0xbc, 0x77, 0xfb, 0xfe, 0xe9, 0xd8, 0x34, 0x94, 0xf9,
+	0xd6, 0x1f, 0x8d, 0xfb, 0xe9, 0x47, 0x95, 0x9e, 0x80, 0xcd, 0x43, 0x22, 0xc9, 0x15, 0x49, 0x46,
+	0x94, 0x5f, 0x86, 0x13, 0x2a, 0xd0, 0x0e, 0x18, 0xa9, 0x28, 0xcd, 0x5f, 0x4f, 0xa1, 0xfd, 0xdf,
+	0x0d, 0x61, 0xa2, 0x3d, 0x30, 0xce, 0x86, 0x1e, 0xba, 0xb3, 0x84, 0x2d, 0xe6, 0xd3, 0xbe, 0xbb,
+	0x9c, 0x50, 0xf8, 0xcf, 0x57, 0xd5, 0x74, 0x9f, 0xfe, 0x08, 0x00, 0x00, 0xff, 0xff, 0xa8, 0x31,
+	0xdb, 0x24, 0x34, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -448,72 +706,112 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// QoEServiceClient is the client API for QoEService service.
+// GatawayServicesClient is the client API for GatawayServices service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type QoEServiceClient interface {
+type GatawayServicesClient interface {
+	// API to request specified Quality of Experience
 	QoE(ctx context.Context, in *RequestQoE, opts ...grpc.CallOption) (*ResponseQoE, error)
+	// API to request L3 VPN label for specified VRF, identified by Route Distinguisher
+	VPN(ctx context.Context, in *RequestVPNLabel, opts ...grpc.CallOption) (*ResponseVPNLabel, error)
 }
 
-type qoEServiceClient struct {
+type gatawayServicesClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewQoEServiceClient(cc *grpc.ClientConn) QoEServiceClient {
-	return &qoEServiceClient{cc}
+func NewGatawayServicesClient(cc *grpc.ClientConn) GatawayServicesClient {
+	return &gatawayServicesClient{cc}
 }
 
-func (c *qoEServiceClient) QoE(ctx context.Context, in *RequestQoE, opts ...grpc.CallOption) (*ResponseQoE, error) {
+func (c *gatawayServicesClient) QoE(ctx context.Context, in *RequestQoE, opts ...grpc.CallOption) (*ResponseQoE, error) {
 	out := new(ResponseQoE)
-	err := c.cc.Invoke(ctx, "/apis.QoEService/QoE", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/apis.GatawayServices/QoE", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// QoEServiceServer is the server API for QoEService service.
-type QoEServiceServer interface {
+func (c *gatawayServicesClient) VPN(ctx context.Context, in *RequestVPNLabel, opts ...grpc.CallOption) (*ResponseVPNLabel, error) {
+	out := new(ResponseVPNLabel)
+	err := c.cc.Invoke(ctx, "/apis.GatawayServices/VPN", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GatawayServicesServer is the server API for GatawayServices service.
+type GatawayServicesServer interface {
+	// API to request specified Quality of Experience
 	QoE(context.Context, *RequestQoE) (*ResponseQoE, error)
+	// API to request L3 VPN label for specified VRF, identified by Route Distinguisher
+	VPN(context.Context, *RequestVPNLabel) (*ResponseVPNLabel, error)
 }
 
-// UnimplementedQoEServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedQoEServiceServer struct {
+// UnimplementedGatawayServicesServer can be embedded to have forward compatible implementations.
+type UnimplementedGatawayServicesServer struct {
 }
 
-func (*UnimplementedQoEServiceServer) QoE(ctx context.Context, req *RequestQoE) (*ResponseQoE, error) {
+func (*UnimplementedGatawayServicesServer) QoE(ctx context.Context, req *RequestQoE) (*ResponseQoE, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QoE not implemented")
 }
-
-func RegisterQoEServiceServer(s *grpc.Server, srv QoEServiceServer) {
-	s.RegisterService(&_QoEService_serviceDesc, srv)
+func (*UnimplementedGatawayServicesServer) VPN(ctx context.Context, req *RequestVPNLabel) (*ResponseVPNLabel, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VPN not implemented")
 }
 
-func _QoEService_QoE_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func RegisterGatawayServicesServer(s *grpc.Server, srv GatawayServicesServer) {
+	s.RegisterService(&_GatawayServices_serviceDesc, srv)
+}
+
+func _GatawayServices_QoE_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RequestQoE)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(QoEServiceServer).QoE(ctx, in)
+		return srv.(GatawayServicesServer).QoE(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/apis.QoEService/QoE",
+		FullMethod: "/apis.GatawayServices/QoE",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QoEServiceServer).QoE(ctx, req.(*RequestQoE))
+		return srv.(GatawayServicesServer).QoE(ctx, req.(*RequestQoE))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _QoEService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "apis.QoEService",
-	HandlerType: (*QoEServiceServer)(nil),
+func _GatawayServices_VPN_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestVPNLabel)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatawayServicesServer).VPN(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apis.GatawayServices/VPN",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatawayServicesServer).VPN(ctx, req.(*RequestVPNLabel))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _GatawayServices_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "apis.GatawayServices",
+	HandlerType: (*GatawayServicesServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "QoE",
-			Handler:    _QoEService_QoE_Handler,
+			Handler:    _GatawayServices_QoE_Handler,
+		},
+		{
+			MethodName: "VPN",
+			Handler:    _GatawayServices_VPN_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

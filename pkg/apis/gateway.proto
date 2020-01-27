@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/any.proto";
+
 package apis;
 
 // EndpointType defines supported endpoints' types
@@ -23,8 +25,10 @@ enum GatewayErrors {
   // Returned when a gateway cannot reach a DB host
   EHOSTDOWN = 4;
 }
-// endpoint is expressed by it is type and the value of endpoint, whether it is
-// address, or SR SID is stored in byte array.
+// endpoint is an object defining a source or a destination of a communication path. 
+// The type of the endpoint is defined by EndpointType, it can be ipv4, ipv6 addresses or segment routing SIDs etc.
+// The list of supported endpoint types may be extended in future.
+// The address of endpoint is stored in a slice of bytes and should be decoded according to the endpoint type.
 message endpoint {
   EndpointType type = 1;
   bytes address = 2;
@@ -54,4 +58,42 @@ message RequestQoE { map<int32, qoe> qoes = 1; }
 // err for each qoe.
 message ResponseQoE { map<int32, qoe> qoes = 1; }
 
-service QoEService { rpc QoE(RequestQoE) returns (ResponseQoE); }
+// Borrowed from gobgp project
+//
+// Route Distinguisher is expressed by 2 bytes Autonomous System
+message RouteDistinguisherTwoOctetAS {
+    uint32 admin = 1;
+    uint32 assigned = 2;
+}
+// Route Distinguisher is expressed by IP address
+message RouteDistinguisherIPAddress {
+    string admin = 1;
+    uint32 assigned = 2;
+}
+// Route Distinguisher is expressed by 4 bytes Autonomous System
+message RouteDistinguisherFourOctetAS {
+    uint32 admin = 1;
+    uint32 assigned = 2;
+}
+// RequestVPNLabel defines the rpc message which is sent by the client to the Gateway
+// to request Layer3 VPN label for the corresponding Route Distinguisher.
+message RequestVPNLabel {
+  // Route Distinguisher must be one of
+  // RouteDistinguisherTwoOctetAS,
+  // RouteDistinguisherIPAddressAS,
+  // or RouteDistinguisherFourOctetAS.
+  google.protobuf.Any rd = 1;
+}
+// ResponseVPNLabel defines the rpc message which is sent by the Gateway to the client
+// in response to RequestVPNLabel. If VPN label is not found, the error will be returned.
+message ResponseVPNLabel {
+    repeated uint32 label = 1;
+    GatewayErrors err = 2;
+}
+
+service GatawayServices {
+    // API to request specified Quality of Experience
+    rpc QoE(RequestQoE) returns (ResponseQoE); 
+    // API to request L3 VPN label for specified VRF, identified by Route Distinguisher
+    rpc VPN(RequestVPNLabel) returns (ResponseVPNLabel);
+}

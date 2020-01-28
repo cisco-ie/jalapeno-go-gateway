@@ -6,10 +6,10 @@ import (
 	"time"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
-	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 )
 
 var (
@@ -26,7 +26,7 @@ type Gateway interface {
 type gateway struct {
 	gSrv *grpc.Server
 	conn net.Listener
-	dbc dbclient.DBClient
+	dbc  dbclient.DBClient
 }
 
 func (g *gateway) Start() {
@@ -65,9 +65,9 @@ func NewGateway(conn net.Listener, dbc dbclient.DBClient) Gateway {
 	gSrv := gateway{
 		conn: conn,
 		gSrv: grpc.NewServer([]grpc.ServerOption{}...),
-		dbc: dbc,
+		dbc:  dbc,
 	}
-	pbapi.RegisterGatawayServicesServer(gSrv.gSrv, &gSrv)
+	pbapi.RegisterGatewayServiceServer(gSrv.gSrv, &gSrv)
 
 	return &gSrv
 
@@ -87,4 +87,3 @@ func (g *gateway) processQoERequest(ctx context.Context, reqQoEs *pbapi.RequestQ
 		return nil, ctx.Err()
 	}
 }
-

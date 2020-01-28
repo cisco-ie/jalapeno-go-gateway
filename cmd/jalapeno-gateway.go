@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strconv"
 
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/bgpclient"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient/mock"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/gateway"
@@ -42,6 +43,12 @@ func main() {
 		glog.Warningf("env variable \"GATEWAY_PORT\" containes an invalid value %d, using default Gateway port instead: %s\n", srvPort, defaultGatewayPort)
 		srvPort, _ = strconv.Atoi(defaultGatewayPort)
 	}
+	// Instantiate BGP client
+	// TODO, the address:port of gobgp should be provided as a parameter.
+	bgp, err := bgpclient.NewBGPClient("gobgpd.default:50051")
+	if err != nil {
+		glog.Warningf("failed to instantiate bgp client with error: %+v", err)
+	}
 	// Get interface to the database
 	// TODO, since it is not clear which database will be used, for now use mock DB
 	db := mock.NewMockDB()
@@ -53,7 +60,7 @@ func main() {
 		glog.Errorf("failed to setup listener with with error: %+v", err)
 		os.Exit(1)
 	}
-	gSrv := gateway.NewGateway(conn, dbc)
+	gSrv := gateway.NewGateway(conn, dbc, bgp)
 	gSrv.Start()
 
 	// For now just get stuck on stop channel, later add signal processing

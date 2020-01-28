@@ -13,7 +13,7 @@ all: jalapeno-gateway
 
 jalapeno-gateway:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -ldflags '-extldflags "-static"' -o ./bin/jalapeno-gateway ./cmd/gateway.go
+	CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -ldflags '-extldflags "-static"' -o ./bin/jalapeno-gateway ./cmd/jalapeno-gateway.go
 
 container: jalapeno-gateway
 	docker build -t $(REGISTRY_NAME)/jalapeno-gateway-debug:$(IMAGE_VERSION) -f ./build/Dockerfile.gateway .

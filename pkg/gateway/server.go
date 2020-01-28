@@ -6,6 +6,7 @@ import (
 	"time"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/bgpclient"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
@@ -27,6 +28,7 @@ type gateway struct {
 	gSrv *grpc.Server
 	conn net.Listener
 	dbc  dbclient.DBClient
+	bgp  bgpclient.BGPClient
 }
 
 func (g *gateway) Start() {
@@ -61,11 +63,12 @@ func (g *gateway) QoE(ctx context.Context, reqQoes *pbapi.RequestQoE) (*pbapi.Re
 }
 
 // NewGateway return an instance of Gateway interface
-func NewGateway(conn net.Listener, dbc dbclient.DBClient) Gateway {
+func NewGateway(conn net.Listener, dbc dbclient.DBClient, bgp bgpclient.BGPClient) Gateway {
 	gSrv := gateway{
 		conn: conn,
 		gSrv: grpc.NewServer([]grpc.ServerOption{}...),
 		dbc:  dbc,
+		bgp:  bgp,
 	}
 	pbapi.RegisterGatewayServiceServer(gSrv.gSrv, &gSrv)
 

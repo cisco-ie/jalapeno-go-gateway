@@ -17,9 +17,9 @@ var (
 )
 
 type dbMock struct {
-	mu       sync.Mutex
-	qoe      map[int32]*pbapi.Qoe
-	vpnRD2AS map[uint32][]uint32
+	mu  sync.Mutex
+	qoe map[int32]*pbapi.Qoe
+	vpn map[pbapi.RouteDistinguisherType]map[uint32][]uint32
 }
 
 // GetQoE is required method by DB interface, it takes requested QoE and searches through

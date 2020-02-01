@@ -25,10 +25,11 @@ enum GatewayErrors {
   // Returned when a gateway cannot reach a DB host
   EHOSTDOWN = 4;
 }
-// endpoint is an object defining a source or a destination of a communication path. 
-// The type of the endpoint is defined by EndpointType, it can be ipv4, ipv6 addresses or segment routing SIDs etc.
-// The list of supported endpoint types may be extended in future.
-// The address of endpoint is stored in a slice of bytes and should be decoded according to the endpoint type.
+// endpoint is an object defining a source or a destination of a communication
+// path. The type of the endpoint is defined by EndpointType, it can be ipv4,
+// ipv6 addresses or segment routing SIDs etc. The list of supported endpoint
+// types may be extended in future. The address of endpoint is stored in a slice
+// of bytes and should be decoded according to the endpoint type.
 message endpoint {
   EndpointType type = 1;
   bytes address = 2;
@@ -59,71 +60,73 @@ message RequestQoE { map<int32, qoe> qoes = 1; }
 message ResponseQoE { map<int32, qoe> qoes = 1; }
 
 message RouteDistinguisherTwoOctetAS {
-    uint32 admin = 1;
-    uint32 assigned = 2;
+  uint32 admin = 1;
+  uint32 assigned = 2;
 }
 message RouteDistinguisherIPAddress {
-    string admin = 1;
-    uint32 assigned = 2;
+  string admin = 1;
+  uint32 assigned = 2;
 }
 message RouteDistinguisherFourOctetAS {
-    uint32 admin = 1;
-    uint32 assigned = 2;
+  uint32 admin = 1;
+  uint32 assigned = 2;
 }
 message TwoOctetAsSpecificExtended {
-    bool is_transitive = 1;
-    uint32 sub_type = 2;
-    uint32 as = 3;
-    uint32 local_admin = 4;
+  bool is_transitive = 1;
+  uint32 sub_type = 2;
+  uint32 as = 3;
+  uint32 local_admin = 4;
 }
 
 message IPv4AddressSpecificExtended {
-    bool is_transitive = 1;
-    uint32 sub_type = 2;
-    string address = 3;
-    uint32 local_admin = 4;
+  bool is_transitive = 1;
+  uint32 sub_type = 2;
+  string address = 3;
+  uint32 local_admin = 4;
 }
 
 message FourOctetAsSpecificExtended {
-    bool is_transitive = 1;
-    uint32 sub_type = 2;
-    uint32 as = 3;
-    uint32 local_admin = 4;
+  bool is_transitive = 1;
+  uint32 sub_type = 2;
+  uint32 as = 3;
+  uint32 local_admin = 4;
 }
 
-// RequestVPN call used to request L3 VPN entries, identified by one Route Distinguisher 
-// which can be one of listed below types, and one or more Route Targets. 
+// RequestVPN call used to request L3 VPN entries, identified by one Route
+// Distinguisher which can be one of listed below types, and one or more Route
+// Targets.
 message RequestVPN {
-    // Route Distinguisher must be one of
-    // RouteDistinguisherTwoOctetAS,
-    // RouteDistinguisherIPAddressAS,
-    // or RouteDistinguisherFourOctetAS.
-    google.protobuf.Any rd = 1;
-    // List of the Route Targets. Each must be one of
-    // TwoOctetAsSpecificExtended,
-    // IPv4AddressSpecificExtended,
-    // or FourOctetAsSpecificExtended.
-    repeated google.protobuf.Any rt = 2;
-  }
+  // Route Distinguisher must be one of
+  // RouteDistinguisherTwoOctetAS,
+  // RouteDistinguisherIPAddressAS,
+  // or RouteDistinguisherFourOctetAS.
+  google.protobuf.Any rd = 1;
+  // List of the Route Targets. Each must be one of
+  // TwoOctetAsSpecificExtended,
+  // IPv4AddressSpecificExtended,
+  // or FourOctetAsSpecificExtended.
+  repeated google.protobuf.Any rt = 2;
+}
 
-  message ResponseVPNEntry {
-    // Route Distinguisher must be one of
-    // RouteDistinguisherTwoOctetAS,
-    // RouteDistinguisherIPAddressAS,
-    // or RouteDistinguisherFourOctetAS.
-    google.protobuf.Any rd = 1;
-    // List of the Route Targets. Each must be one of
-    // TwoOctetAsSpecificExtended,
-    // IPv4AddressSpecificExtended,
-    // or FourOctetAsSpecificExtended.
-    repeated google.protobuf.Any import_rt = 2;
-    uint32 label = 3;
-  }
+message ResponseVPNEntry {
+  // Route Distinguisher must be one of
+  // RouteDistinguisherTwoOctetAS,
+  // RouteDistinguisherIPAddressAS,
+  // or RouteDistinguisherFourOctetAS.
+  google.protobuf.Any rd = 1;
+  // List of the Route Targets. Each must be one of
+  // TwoOctetAsSpecificExtended,
+  // IPv4AddressSpecificExtended,
+  // or FourOctetAsSpecificExtended.
+  repeated google.protobuf.Any rt = 2;
+  uint32 label = 3;
+}
 
-  // GatewayService lists rpc services supported by the gateway api
+// GatewayService lists rpc services supported by the gateway api
 service GatewayService {
-    // API to request specified Quality of Experience
-    rpc QoE(RequestQoE) returns (ResponseQoE); 
-    // API to request L3 VPN label for specified VRF, identified by Route Distinguisher
-    rpc VPN(RequestVPN) returns (stream ResponseVPNEntry);
+  // API to request specified Quality of Experience
+  rpc QoE(RequestQoE) returns (ResponseQoE);
+  // API to request L3 VPN label for specified VRF, identified by Route
+  // Distinguisher
+  rpc VPN(RequestVPN) returns (stream ResponseVPNEntry);
 }

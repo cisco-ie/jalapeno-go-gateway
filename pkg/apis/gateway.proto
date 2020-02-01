@@ -103,7 +103,7 @@ message RequestVPN {
     // TwoOctetAsSpecificExtended,
     // IPv4AddressSpecificExtended,
     // or FourOctetAsSpecificExtended.
-    repeated google.protobuf.Any import_rt = 2;
+    repeated google.protobuf.Any rt = 2;
   }
 
   message ResponseVPNEntry {

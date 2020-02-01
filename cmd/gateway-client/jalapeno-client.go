@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math/rand"
 	"net"
@@ -31,11 +32,12 @@ func main() {
 		glog.Errorf("env variable \"CLIENT_IP\" carries an invalid ip %s", client)
 		os.Exit(1)
 	}
+	glog.Errorf("\"CLIENT_IP:\" %s", client)
 	ctx := peer.NewContext(context.TODO(), &peer.Peer{
 		Addr: &net.IPAddr{
 			IP: net.ParseIP(client),
 		}})
-	conn, err := grpc.DialContext(ctx, jalapenoGateway, grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, jalapenoGateway)
 	if err != nil {
 		glog.Errorf("failed to connect to Jalapeno Gateway at the address: %s with error: %+v", jalapenoGateway, err)
 		os.Exit(1)
@@ -80,7 +82,7 @@ func main() {
 			if err != nil {
 				glog.Errorf("failed to receive a message from the stream with error: %+v", err)
 			}
-			glog.Infof("Received message: %+v", *entry)
+			fmt.Printf("Received message: %+v\n", *entry)
 		}
 		select {
 		case <-ticker.C:

@@ -1,25 +1,34 @@
 REGISTRY_NAME?=docker.io/sbezverk
 IMAGE_VERSION?=0.0.0
 
-.PHONY: all jalapeno-gateway container push clean test
+.PHONY: all jalapeno-gateway jalapeno-client compile-gateway compile-client container-gateway container-client push clean test
 
 ifdef V
 TESTARGS = -v -args -alsologtostderr -v 5
 else
 TESTARGS =
 endif
+BIN=./
 
-all: jalapeno-gateway
+all: jalapeno-gateway jalapeno-client
 
 jalapeno-gateway:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -ldflags '-extldflags "-static"' -o ./bin/jalapeno-gateway ./cmd/jalapeno-gateway.go
+	$(MAKE) -C ./cmd compile-gateway
 
-container: jalapeno-gateway
+jalapeno-client:
+	mkdir -p bin
+	$(MAKE) -C ./cmd/gateway-client compile-client
+
+container-gateway: jalapeno-gateway
 	docker build -t $(REGISTRY_NAME)/jalapeno-gateway-debug:$(IMAGE_VERSION) -f ./build/Dockerfile.gateway .
 
-push: container
+container-client: jalapeno-client
+	docker build -t $(REGISTRY_NAME)/jalapeno-client:$(IMAGE_VERSION) -f ./build/Dockerfile.client .
+
+push: container-gateway container-client
 	docker push $(REGISTRY_NAME)/jalapeno-gateway-debug:$(IMAGE_VERSION)
+	docker push $(REGISTRY_NAME)/jalapeno-client:$(IMAGE_VERSION)
 
 clean:
 	rm -rf bin

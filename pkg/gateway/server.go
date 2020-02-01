@@ -41,8 +41,11 @@ func (g *gateway) Stop() {
 	g.gSrv.Stop()
 }
 
-func (g *gateway) VPN(ctx context.Context, reqVPN *pbapi.RequestVPNLabel) (*pbapi.ResponseVPNLabel, error) {
-	return &pbapi.ResponseVPNLabel{}, nil
+func (g *gateway) VPN(reqVPN *pbapi.RequestVPN, stream pbapi.GatewayService_VPNServer) error {
+	if err := stream.Send(&pbapi.ResponseVPNEntry{}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (g *gateway) QoE(ctx context.Context, reqQoes *pbapi.RequestQoE) (*pbapi.ResponseQoE, error) {

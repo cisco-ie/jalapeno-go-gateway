@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/any.proto";
+
 package apis;
 
 // EndpointType defines supported endpoints' types
@@ -55,29 +57,73 @@ message RequestQoE { map<int32, qoe> qoes = 1; }
 // it is the same message as request, but the gateway populates labels and
 // err for each qoe.
 message ResponseQoE { map<int32, qoe> qoes = 1; }
-// RouteDistinguisherType lists supported Route Destinguisher types
-enum RouteDistinguisherType {
-  INVALID = 0;
-  TWOOCTETAS = 1;
-  FOUROCTETAS = 2;
-  IPADDRESS = 3;
+
+message RouteDistinguisherTwoOctetAS {
+    uint32 admin = 1;
+    uint32 assigned = 2;
 }
-// RequestVPNLabel defines the rpc message which is sent by the client to the Gateway
-// to request Layer3 VPN label for the corresponding Route Distinguisher.
-message RequestVPNLabel {
-  RouteDistinguisherType type = 1;
-  bytes rd = 2;
+message RouteDistinguisherIPAddress {
+    string admin = 1;
+    uint32 assigned = 2;
 }
-// ResponseVPNLabel defines the rpc message which is sent by the Gateway to the client
-// in response to RequestVPNLabel. If VPN label is not found, the error will be returned.
-message ResponseVPNLabel {
-    repeated uint32 label = 1;
-    GatewayErrors err = 2;
+message RouteDistinguisherFourOctetAS {
+    uint32 admin = 1;
+    uint32 assigned = 2;
 }
-// GatewayService lists rpc services supported by the gateway api
+message TwoOctetAsSpecificExtended {
+    bool is_transitive = 1;
+    uint32 sub_type = 2;
+    uint32 as = 3;
+    uint32 local_admin = 4;
+}
+
+message IPv4AddressSpecificExtended {
+    bool is_transitive = 1;
+    uint32 sub_type = 2;
+    string address = 3;
+    uint32 local_admin = 4;
+}
+
+message FourOctetAsSpecificExtended {
+    bool is_transitive = 1;
+    uint32 sub_type = 2;
+    uint32 as = 3;
+    uint32 local_admin = 4;
+}
+
+// RequestVPN call used to request L3 VPN entries, identified by one Route Distinguisher 
+// which can be one of listed below types, and one or more Route Targets. 
+message RequestVPN {
+    // Route Distinguisher must be one of
+    // RouteDistinguisherTwoOctetAS,
+    // RouteDistinguisherIPAddressAS,
+    // or RouteDistinguisherFourOctetAS.
+    google.protobuf.Any rd = 1;
+    // List of the Route Targets. Each must be one of
+    // TwoOctetAsSpecificExtended,
+    // IPv4AddressSpecificExtended,
+    // or FourOctetAsSpecificExtended.
+    repeated google.protobuf.Any import_rt = 2;
+  }
+
+  message ResponseVPNEntry {
+    // Route Distinguisher must be one of
+    // RouteDistinguisherTwoOctetAS,
+    // RouteDistinguisherIPAddressAS,
+    // or RouteDistinguisherFourOctetAS.
+    google.protobuf.Any rd = 1;
+    // List of the Route Targets. Each must be one of
+    // TwoOctetAsSpecificExtended,
+    // IPv4AddressSpecificExtended,
+    // or FourOctetAsSpecificExtended.
+    repeated google.protobuf.Any import_rt = 2;
+    uint32 label = 3;
+  }
+
+  // GatewayService lists rpc services supported by the gateway api
 service GatewayService {
     // API to request specified Quality of Experience
     rpc QoE(RequestQoE) returns (ResponseQoE); 
     // API to request L3 VPN label for specified VRF, identified by Route Distinguisher
-    rpc VPN(RequestVPNLabel) returns (ResponseVPNLabel);
+    rpc VPN(RequestVPN) returns (stream ResponseVPNEntry);
 }

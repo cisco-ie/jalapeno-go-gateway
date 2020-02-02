@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/bgpclient"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
@@ -42,6 +44,36 @@ func (g *gateway) Stop() {
 }
 
 func (g *gateway) VPN(reqVPN *pbapi.RequestVPN, stream pbapi.GatewayService_VPNServer) error {
+	var rdValue ptypes.DynamicAny
+	if err := ptypes.UnmarshalAny(reqVPN.Rd, &rdValue); err != nil {
+		return fmt.Errorf("failed to unmarshal route distinguisher with error: %+v", err)
+	}
+	rd := "RD: "
+	switch v := rdValue.Message.(type) {
+	case *pbapi.RouteDistinguisherTwoOctetAS:
+		rd = fmt.Sprintf("%d:%d ", uint16(v.Admin), v.Assigned)
+	case *pbapi.RouteDistinguisherIPAddress:
+		rd = fmt.Sprintf("%s:%d ", v.Admin, uint16(v.Assigned))
+	case *pbapi.RouteDistinguisherFourOctetAS:
+		rd = fmt.Sprintf("%d:%d ", v.Admin, uint16(v.Assigned))
+	}
+	var rt string
+	for i := 0; i < len(reqVPN.Rt); i++ {
+		var rtValue ptypes.DynamicAny
+		if err := ptypes.UnmarshalAny(reqVPN.Rt[i], &rtValue); err != nil {
+			return fmt.Errorf("failed to unmarshal route target with error: %+v", err)
+		}
+		rt += "RT: "
+		switch v := rtValue.Message.(type) {
+		case *pbapi.TwoOctetAsSpecificExtended:
+			rt += fmt.Sprintf("Subtype:%d 2 bytes AS:%d LocalAdmin:%d Transitive:%t", v.SubType, uint16(v.As), v.LocalAdmin, v.IsTransitive)
+		case *pbapi.IPv4AddressSpecificExtended:
+			rt += fmt.Sprintf("Subtype:%d Address:%d LocalAdmin:%d Transitive:%t", v.SubType, v.Address, uint16(v.LocalAdmin), v.IsTransitive)
+		case *pbapi.FourOctetAsSpecificExtended:
+			rt += fmt.Sprintf("Subtype:%d 4 bytes AS:%d LocalAdmin:%d Transitive:%t", v.SubType, v.As, uint16(v.LocalAdmin), v.IsTransitive)
+		}
+	}
+	glog.Infof("Request for VPN with %s %s", rd, rt)
 	if err := stream.Send(&pbapi.ResponseVPNEntry{}); err != nil {
 		return err
 	}

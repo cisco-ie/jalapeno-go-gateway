@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"math/rand"
@@ -23,6 +24,9 @@ const (
 )
 
 func main() {
+	flag.Parse()
+	flag.Set("logtostderr", "true")
+
 	client := os.Getenv("CLIENT_IP")
 	if client == "" {
 		glog.Errorf("env variable \"CLIENT_IP\" is not defined, cannor proceed further, exiting...")
@@ -37,7 +41,7 @@ func main() {
 		Addr: &net.IPAddr{
 			IP: net.ParseIP(client),
 		}})
-	conn, err := grpc.DialContext(ctx, jalapenoGateway)
+	conn, err := grpc.DialContext(ctx, jalapenoGateway, grpc.WithInsecure())
 	if err != nil {
 		glog.Errorf("failed to connect to Jalapeno Gateway at the address: %s with error: %+v", jalapenoGateway, err)
 		os.Exit(1)
@@ -72,17 +76,19 @@ func main() {
 		i := rand.Intn(3)
 		stream, err := gwclient.VPN(ctx, requests[i])
 		if err != nil {
-			glog.Errorf("failed to request VPN label for request %+v with error: %+v", requests[i])
-		}
-		for {
-			entry, err := stream.Recv()
-			if err == io.EOF {
-				break
+			glog.Errorf("failed to request VPN label for request %+v with error: %+v", requests[i], err)
+		} else {
+			for {
+				entry, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					glog.Errorf("failed to receive a message from the stream with error: %+v", err)
+					break
+				}
+				fmt.Printf("Received message: %+v\n", *entry)
 			}
-			if err != nil {
-				glog.Errorf("failed to receive a message from the stream with error: %+v", err)
-			}
-			fmt.Printf("Received message: %+v\n", *entry)
 		}
 		select {
 		case <-ticker.C:

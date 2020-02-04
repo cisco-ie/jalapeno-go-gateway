@@ -9,6 +9,7 @@ import (
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
+	"github.com/golang/glog"
 )
 
 var (
@@ -16,9 +17,35 @@ var (
 	maxDBRequestTimeout = time.Millisecond * 2000
 )
 
+type labelInfo struct {
+	label uint32
+	rt    []dbclient.RTValue
+}
 type dbMock struct {
 	mu  sync.Mutex
 	qoe map[int32]*pbapi.Qoe
+	vpn map[dbclient.RDValue]labelInfo
+}
+
+func (db *dbMock) GetVPN(ctx context.Context, r *dbclient.VPNRequest, ch chan *dbclient.VPNReply) {
+	glog.Infof("db mock GetVPN rd: %+v ", r.RD)
+	var repl *dbclient.VPNReply
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	li, ok := db.vpn[r.RD]
+	if !ok {
+		ch <- &dbclient.VPNReply{}
+		glog.Infof("db mock GetVPN reply with empty reply")
+		return
+	}
+	repl = &dbclient.VPNReply{
+		RD:    r.RD,
+		RT:    r.RT,
+		Label: li.label,
+	}
+	ch <- repl
+	glog.Infof("db mock GetVPN reply %+v", repl)
 }
 
 // GetQoE is required method by DB interface, it takes requested QoE and searches through
@@ -49,6 +76,26 @@ func (db *dbMock) GetQoE(ctx context.Context, req *pbapi.Qoe, ch chan *pbapi.Qoe
 // loadTestData loads test data into the mock DB.
 func (db *dbMock) loadTestData() {
 	// TODO Consider more flexible way to load test data
+	vpn := map[dbclient.RDValue]labelInfo{
+		{
+			T:     dbclient.RouteDistinguisherTwoOctetAS,
+			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 234},
+		}: {
+			label: 24000,
+		},
+		{
+			T:     dbclient.RouteDistinguisherTwoOctetAS,
+			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 235},
+		}: {
+			label: 24001,
+		},
+		{
+			T:     dbclient.RouteDistinguisherTwoOctetAS,
+			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 236},
+		}: {
+			label: 24002,
+		},
+	}
 	qoe := map[int32]*pbapi.Qoe{
 		0: &pbapi.Qoe{
 			Src: &pbapi.Endpoint{
@@ -156,6 +203,7 @@ func (db *dbMock) loadTestData() {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	db.qoe = qoe
+	db.vpn = vpn
 }
 
 // NewMockDB return  a new instance of a DB client

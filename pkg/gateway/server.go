@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"time"
@@ -44,39 +45,73 @@ func (g *gateway) Stop() {
 }
 
 func (g *gateway) VPN(reqVPN *pbapi.RequestVPN, stream pbapi.GatewayService_VPNServer) error {
+	ctx := stream.Context()
+	peer, ok := peer.FromContext(ctx)
+	if ok {
+		glog.V(5).Infof("VPN request from client: %+v", *peer)
+	}
 	var rdValue ptypes.DynamicAny
 	if err := ptypes.UnmarshalAny(reqVPN.Rd, &rdValue); err != nil {
 		return fmt.Errorf("failed to unmarshal route distinguisher with error: %+v", err)
 	}
-	rd := "RD: "
+	// rdbytes stores route distinguisher from the request in a byte slice form.
+	var rdbytes [8]byte
+	var rdType dbclient.RDType
 	switch v := rdValue.Message.(type) {
 	case *pbapi.RouteDistinguisherTwoOctetAS:
-		rd = fmt.Sprintf("%d:%d ", uint16(v.Admin), v.Assigned)
+		binary.BigEndian.PutUint16(rdbytes[0:], uint16(v.Admin))
+		binary.BigEndian.PutUint32(rdbytes[4:], v.Assigned)
+		rdType = dbclient.RouteDistinguisherTwoOctetAS
 	case *pbapi.RouteDistinguisherIPAddress:
-		rd = fmt.Sprintf("%s:%d ", v.Admin, uint16(v.Assigned))
+		copy(rdbytes[0:], v.Admin)
+		binary.BigEndian.PutUint32(rdbytes[4:], v.Assigned)
+		rdType = dbclient.RouteDistinguisherIPAddressAS
 	case *pbapi.RouteDistinguisherFourOctetAS:
-		rd = fmt.Sprintf("%d:%d ", v.Admin, uint16(v.Assigned))
+		binary.BigEndian.PutUint32(rdbytes[0:], v.Admin)
+		binary.BigEndian.PutUint16(rdbytes[4:], uint16(v.Assigned))
+		rdType = dbclient.RouteDistinguisherFourOctetAS
 	}
-	var rt string
+	// rtbytes stores all route targets received in the request, each route target is represented
+	// by a slice of bytes.
+	rtbytes := make([][8]byte, len(reqVPN.Rt))
 	for i := 0; i < len(reqVPN.Rt); i++ {
 		var rtValue ptypes.DynamicAny
 		if err := ptypes.UnmarshalAny(reqVPN.Rt[i], &rtValue); err != nil {
 			return fmt.Errorf("failed to unmarshal route target with error: %+v", err)
 		}
-		rt += "RT: "
 		switch v := rtValue.Message.(type) {
 		case *pbapi.TwoOctetAsSpecificExtended:
-			rt += fmt.Sprintf("Subtype:%d 2 bytes AS:%d LocalAdmin:%d Transitive:%t", v.SubType, uint16(v.As), v.LocalAdmin, v.IsTransitive)
+			binary.BigEndian.PutUint16(rtbytes[i][0:], uint16(v.SubType))
+			binary.BigEndian.PutUint16(rtbytes[i][2:], uint16(v.As))
+			binary.BigEndian.PutUint32(rtbytes[i][4:], v.LocalAdmin)
 		case *pbapi.IPv4AddressSpecificExtended:
-			rt += fmt.Sprintf("Subtype:%d Address:%d LocalAdmin:%d Transitive:%t", v.SubType, v.Address, uint16(v.LocalAdmin), v.IsTransitive)
+			binary.BigEndian.PutUint16(rtbytes[i][0:], uint16(v.SubType))
+			copy(rtbytes[i][2:], []byte(v.Address))
+			binary.BigEndian.PutUint16(rtbytes[i][6:], uint16(v.LocalAdmin))
 		case *pbapi.FourOctetAsSpecificExtended:
-			rt += fmt.Sprintf("Subtype:%d 4 bytes AS:%d LocalAdmin:%d Transitive:%t", v.SubType, v.As, uint16(v.LocalAdmin), v.IsTransitive)
+			binary.BigEndian.PutUint16(rtbytes[i][0:], uint16(v.SubType))
+			binary.BigEndian.PutUint32(rtbytes[i][2:], v.As)
+			binary.BigEndian.PutUint16(rtbytes[i][6:], uint16(v.LocalAdmin))
 		}
 	}
-	glog.Infof("Request for VPN with %s %s", rd, rt)
-	if err := stream.Send(&pbapi.ResponseVPNEntry{}); err != nil {
+	glog.Infof("Request in bytes, rd: %+v rt: %+v", rdbytes, rtbytes)
+
+	repl, err := g.processVPNRequest(ctx, &dbclient.VPNRequest{
+		RD: dbclient.RDValue{
+			T:     rdType,
+			Value: rdbytes,
+		},
+	})
+	if err != nil {
 		return err
 	}
+	if err := stream.Send(&pbapi.ResponseVPNEntry{
+		Rd:    reqVPN.Rd,
+		Label: repl.Label,
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -122,6 +157,24 @@ func (g *gateway) processQoERequest(ctx context.Context, reqQoEs *pbapi.RequestQ
 	case replQoEs = <-result:
 		return replQoEs, nil
 	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// processQoERequest start DB client and wait for either of 2 events, result comming back from a result channel
+// or a context timing out.
+func (g *gateway) processVPNRequest(ctx context.Context, req *dbclient.VPNRequest) (*dbclient.VPNReply, error) {
+	glog.Infof("processVPNRequest rd: %+v ", req.RD)
+	var repl *dbclient.VPNReply
+	result := make(chan *dbclient.VPNReply)
+	// Requesting DB client to retrieve requested infotmation
+	go g.dbc.GetVPN(ctx, req, result)
+	select {
+	case repl = <-result:
+		glog.Infof("processVPNRequest reply: %+v ", repl.Label)
+		return repl, nil
+	case <-ctx.Done():
+		glog.Infof("processVPNRequest reply with error: %+v ", ctx.Err())
 		return nil, ctx.Err()
 	}
 }

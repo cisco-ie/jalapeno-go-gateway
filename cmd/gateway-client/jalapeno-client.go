@@ -52,9 +52,11 @@ func main() {
 	rd1, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65002)})
 	rd2, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65003)})
 	rd3, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65004)})
+	rd4, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65005)})
 	rt1, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65002)})
 	rt2, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65003)})
 	rt3, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65004)})
+	rt4, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65005)})
 	requests := []*pbapi.RequestVPN{
 		{
 			Rd: rd1,
@@ -68,12 +70,16 @@ func main() {
 			Rd: rd3,
 			Rt: []*any.Any{rt3},
 		},
+		{
+			Rd: rd4,
+			Rt: []*any.Any{rt4},
+		},
 	}
 	stopCh := setupSignalHandler()
 	// The client will randomly send requests between three VRFs green, blue and red.
 	ticker := time.NewTicker(time.Second * 10)
 	for {
-		i := rand.Intn(3)
+		i := rand.Intn(4)
 		stream, err := gwclient.VPN(ctx, requests[i])
 		if err != nil {
 			glog.Errorf("failed to request VPN label for request %+v with error: %+v", requests[i], err)
@@ -87,7 +93,11 @@ func main() {
 					glog.Errorf("failed to receive a message from the stream with error: %+v", err)
 					break
 				}
-				fmt.Printf("Received message: %+v\n", *entry)
+				if entry != nil {
+					fmt.Printf("Received label: %+v\n", entry.Label)
+				} else {
+					fmt.Printf("Received empty message\n")
+				}
 			}
 		}
 		select {

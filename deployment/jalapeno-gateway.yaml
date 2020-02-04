@@ -28,7 +28,7 @@ kind: Deployment
 metadata:
   name: jalapeno-gateway
 spec:
-  replicas: 2
+  replicas: 1 
   selector:
     matchLabels:
       app: jalapeno-gateway

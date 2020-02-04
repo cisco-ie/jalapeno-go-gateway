@@ -92,6 +92,10 @@ message FourOctetAsSpecificExtended {
   uint32 local_admin = 4;
 }
 
+message Prefix {
+  bytes address = 1;
+  uint32 mask_length = 2;
+}
 // RequestVPN call used to request L3 VPN entries, identified by one Route
 // Distinguisher which can be one of listed below types, and one or more Route
 // Targets.
@@ -106,6 +110,8 @@ message RequestVPN {
   // IPv4AddressSpecificExtended,
   // or FourOctetAsSpecificExtended.
   repeated google.protobuf.Any rt = 2;
+  // vpn_prefix is L3 VPN prefix which vpn label is requested for.
+  Prefix vpn_prefix = 3;
 }
 
 message ResponseVPNEntry {

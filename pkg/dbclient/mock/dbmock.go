@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/bgpclient"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/golang/glog"
 )
@@ -19,33 +20,33 @@ var (
 
 type labelInfo struct {
 	label uint32
-	rt    []dbclient.RTValue
+	rt    []bgpclient.RTValue
 }
 type dbMock struct {
 	mu  sync.Mutex
 	qoe map[int32]*pbapi.Qoe
-	vpn map[dbclient.RDValue]labelInfo
+	vpn map[bgpclient.RDValue]labelInfo
 }
 
-func (db *dbMock) GetVPN(ctx context.Context, r *dbclient.VPNRequest, ch chan *dbclient.VPNReply) {
-	glog.Infof("db mock GetVPN rd: %+v ", r.RD)
-	var repl *dbclient.VPNReply
+func (db *dbMock) GetVPN(ctx context.Context, r *bgpclient.VPNRequest, ch chan *bgpclient.VPNReply) {
+	glog.V(5).Infof("db mock GetVPN rd: %+v ", r.RD)
+	var repl *bgpclient.VPNReply
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	li, ok := db.vpn[r.RD]
 	if !ok {
-		ch <- &dbclient.VPNReply{}
-		glog.Infof("db mock GetVPN reply with empty reply")
+		ch <- &bgpclient.VPNReply{}
+		glog.V(5).Infof("db mock GetVPN reply with empty reply")
 		return
 	}
-	repl = &dbclient.VPNReply{
+	repl = &bgpclient.VPNReply{
 		RD:    r.RD,
-		RT:    r.RT,
+		RT:    li.rt,
 		Label: li.label,
 	}
 	ch <- repl
-	glog.Infof("db mock GetVPN reply %+v", repl)
+	glog.V(5).Infof("db mock GetVPN reply %+v", repl)
 }
 
 // GetQoE is required method by DB interface, it takes requested QoE and searches through
@@ -76,24 +77,42 @@ func (db *dbMock) GetQoE(ctx context.Context, req *pbapi.Qoe, ch chan *pbapi.Qoe
 // loadTestData loads test data into the mock DB.
 func (db *dbMock) loadTestData() {
 	// TODO Consider more flexible way to load test data
-	vpn := map[dbclient.RDValue]labelInfo{
+	vpn := map[bgpclient.RDValue]labelInfo{
 		{
-			T:     dbclient.RouteDistinguisherTwoOctetAS,
+			T:     bgpclient.RouteDistinguisherTwoOctetAS,
 			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 234},
 		}: {
 			label: 24000,
+			rt: []bgpclient.RTValue{
+				{
+					T:     bgpclient.TwoOctetAsSpecificExtended,
+					Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 234},
+				},
+			},
 		},
 		{
-			T:     dbclient.RouteDistinguisherTwoOctetAS,
+			T:     bgpclient.RouteDistinguisherTwoOctetAS,
 			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 235},
 		}: {
 			label: 24001,
+			rt: []bgpclient.RTValue{
+				{
+					T:     bgpclient.TwoOctetAsSpecificExtended,
+					Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 235},
+				},
+			},
 		},
 		{
-			T:     dbclient.RouteDistinguisherTwoOctetAS,
+			T:     bgpclient.RouteDistinguisherTwoOctetAS,
 			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 236},
 		}: {
 			label: 24002,
+			rt: []bgpclient.RTValue{
+				{
+					T:     bgpclient.TwoOctetAsSpecificExtended,
+					Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 236},
+				},
+			},
 		},
 	}
 	qoe := map[int32]*pbapi.Qoe{

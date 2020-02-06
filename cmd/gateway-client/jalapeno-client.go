@@ -16,7 +16,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -37,11 +37,8 @@ func main() {
 		os.Exit(1)
 	}
 	glog.Errorf("\"CLIENT_IP:\" %s", client)
-	ctx := peer.NewContext(context.TODO(), &peer.Peer{
-		Addr: &net.IPAddr{
-			IP: net.ParseIP(client),
-		}})
-	conn, err := grpc.DialContext(ctx, jalapenoGateway, grpc.WithInsecure())
+
+	conn, err := grpc.DialContext(context.TODO(), jalapenoGateway, grpc.WithInsecure())
 	if err != nil {
 		glog.Errorf("failed to connect to Jalapeno Gateway at the address: %s with error: %+v", jalapenoGateway, err)
 		os.Exit(1)
@@ -78,6 +75,9 @@ func main() {
 	stopCh := setupSignalHandler()
 	// The client will randomly send requests between three VRFs green, blue and red.
 	ticker := time.NewTicker(time.Second * 10)
+	ctx := metadata.NewOutgoingContext(context.TODO(), metadata.New(map[string]string{
+		"CLIENT_IP": net.ParseIP(client).String(),
+	}))
 	for {
 		i := rand.Intn(4)
 		stream, err := gwclient.VPN(ctx, requests[i])
@@ -93,8 +93,9 @@ func main() {
 					glog.Errorf("failed to receive a message from the stream with error: %+v", err)
 					break
 				}
+
 				if entry != nil {
-					fmt.Printf("Received label: %+v\n", entry.Label)
+					fmt.Printf("Received message: %+v\n", *entry)
 				} else {
 					fmt.Printf("Received empty message\n")
 				}

@@ -2,8 +2,6 @@ package gateway
 
 import (
 	"context"
-	"encoding/binary"
-	"fmt"
 	"net"
 	"time"
 
@@ -11,8 +9,8 @@ import (
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/bgpclient"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 )
 
@@ -46,69 +44,27 @@ func (g *gateway) Stop() {
 
 func (g *gateway) VPN(reqVPN *pbapi.RequestVPN, stream pbapi.GatewayService_VPNServer) error {
 	ctx := stream.Context()
-	peer, ok := peer.FromContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
-		glog.V(5).Infof("VPN request from client: %+v", *peer)
-	}
-	var rdValue ptypes.DynamicAny
-	if err := ptypes.UnmarshalAny(reqVPN.Rd, &rdValue); err != nil {
-		return fmt.Errorf("failed to unmarshal route distinguisher with error: %+v", err)
-	}
-	// rdbytes stores route distinguisher from the request in a byte slice form.
-	var rdbytes [8]byte
-	var rdType dbclient.RDType
-	switch v := rdValue.Message.(type) {
-	case *pbapi.RouteDistinguisherTwoOctetAS:
-		binary.BigEndian.PutUint16(rdbytes[0:], uint16(v.Admin))
-		binary.BigEndian.PutUint32(rdbytes[4:], v.Assigned)
-		rdType = dbclient.RouteDistinguisherTwoOctetAS
-	case *pbapi.RouteDistinguisherIPAddress:
-		copy(rdbytes[0:], v.Admin)
-		binary.BigEndian.PutUint32(rdbytes[4:], v.Assigned)
-		rdType = dbclient.RouteDistinguisherIPAddressAS
-	case *pbapi.RouteDistinguisherFourOctetAS:
-		binary.BigEndian.PutUint32(rdbytes[0:], v.Admin)
-		binary.BigEndian.PutUint16(rdbytes[4:], uint16(v.Assigned))
-		rdType = dbclient.RouteDistinguisherFourOctetAS
-	}
-	// rtbytes stores all route targets received in the request, each route target is represented
-	// by a slice of bytes.
-	rtbytes := make([][8]byte, len(reqVPN.Rt))
-	for i := 0; i < len(reqVPN.Rt); i++ {
-		var rtValue ptypes.DynamicAny
-		if err := ptypes.UnmarshalAny(reqVPN.Rt[i], &rtValue); err != nil {
-			return fmt.Errorf("failed to unmarshal route target with error: %+v", err)
-		}
-		switch v := rtValue.Message.(type) {
-		case *pbapi.TwoOctetAsSpecificExtended:
-			binary.BigEndian.PutUint16(rtbytes[i][0:], uint16(v.SubType))
-			binary.BigEndian.PutUint16(rtbytes[i][2:], uint16(v.As))
-			binary.BigEndian.PutUint32(rtbytes[i][4:], v.LocalAdmin)
-		case *pbapi.IPv4AddressSpecificExtended:
-			binary.BigEndian.PutUint16(rtbytes[i][0:], uint16(v.SubType))
-			copy(rtbytes[i][2:], []byte(v.Address))
-			binary.BigEndian.PutUint16(rtbytes[i][6:], uint16(v.LocalAdmin))
-		case *pbapi.FourOctetAsSpecificExtended:
-			binary.BigEndian.PutUint16(rtbytes[i][0:], uint16(v.SubType))
-			binary.BigEndian.PutUint32(rtbytes[i][2:], v.As)
-			binary.BigEndian.PutUint16(rtbytes[i][6:], uint16(v.LocalAdmin))
+		client := md.Get("CLIENT_IP")
+		if len(client) != 0 {
+			glog.Infof("VPN request from client: %+v", client)
 		}
 	}
-	glog.Infof("Request in bytes, rd: %+v rt: %+v", rdbytes, rtbytes)
-
-	repl, err := g.processVPNRequest(ctx, &dbclient.VPNRequest{
-		RD: dbclient.RDValue{
-			T:     rdType,
-			Value: rdbytes,
-		},
-	})
+	// Building new vpn reuqest from info recieved in grpc packet
+	vpnRequest, err := bgpclient.NewVPNRequest(reqVPN)
 	if err != nil {
 		return err
 	}
-	if err := stream.Send(&pbapi.ResponseVPNEntry{
-		Rd:    reqVPN.Rd,
-		Label: repl.Label,
-	}); err != nil {
+	repl, err := g.processVPNRequest(ctx, vpnRequest)
+	if err != nil {
+		return err
+	}
+	r, err := bgpclient.NewVPNReply(repl)
+	if err != nil {
+		return err
+	}
+	if err := stream.Send(r); err != nil {
 		return err
 	}
 
@@ -163,10 +119,10 @@ func (g *gateway) processQoERequest(ctx context.Context, reqQoEs *pbapi.RequestQ
 
 // processQoERequest start DB client and wait for either of 2 events, result comming back from a result channel
 // or a context timing out.
-func (g *gateway) processVPNRequest(ctx context.Context, req *dbclient.VPNRequest) (*dbclient.VPNReply, error) {
+func (g *gateway) processVPNRequest(ctx context.Context, req *bgpclient.VPNRequest) (*bgpclient.VPNReply, error) {
 	glog.Infof("processVPNRequest rd: %+v ", req.RD)
-	var repl *dbclient.VPNReply
-	result := make(chan *dbclient.VPNReply)
+	var repl *bgpclient.VPNReply
+	result := make(chan *bgpclient.VPNReply)
 	// Requesting DB client to retrieve requested infotmation
 	go g.dbc.GetVPN(ctx, req, result)
 	select {

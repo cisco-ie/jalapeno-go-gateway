@@ -120,17 +120,17 @@ func (g *gateway) processQoERequest(ctx context.Context, reqQoEs *pbapi.RequestQ
 // processQoERequest start DB client and wait for either of 2 events, result comming back from a result channel
 // or a context timing out.
 func (g *gateway) processVPNRequest(ctx context.Context, req *bgpclient.VPNRequest) (*bgpclient.VPNReply, error) {
-	glog.Infof("processVPNRequest rd: %+v ", req.RD)
+	glog.V(5).Infof("processVPNRequest rd: %+v ", req.RD)
 	var repl *bgpclient.VPNReply
 	result := make(chan *bgpclient.VPNReply)
 	// Requesting DB client to retrieve requested infotmation
 	go g.dbc.GetVPN(ctx, req, result)
 	select {
 	case repl = <-result:
-		glog.Infof("processVPNRequest reply: %+v ", repl.Label)
+		glog.V(5).Infof("processVPNRequest reply: %+v ", repl.Label)
 		return repl, nil
 	case <-ctx.Done():
-		glog.Infof("processVPNRequest reply with error: %+v ", ctx.Err())
+		glog.V(5).Infof("processVPNRequest reply with error: %+v ", ctx.Err())
 		return nil, ctx.Err()
 	}
 }

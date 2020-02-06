@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	api "github.com/osrg/gobgp/api"
 	"google.golang.org/grpc"
 )
@@ -148,7 +148,6 @@ func NewVPNRequest(reqVPN *pbapi.RequestVPN) (*VPNRequest, error) {
 // NewVPNReply creates pbapi.ResponseVPNEntry struct and populates its fields with information
 // came in VPNReply.
 func NewVPNReply(repl *VPNReply) (*pbapi.ResponseVPNEntry, error) {
-	glog.Infof("Reply: %+v", *repl)
 	gRepl := pbapi.ResponseVPNEntry{
 		Label: repl.Label,
 	}
@@ -182,10 +181,12 @@ func NewVPNReply(repl *VPNReply) (*pbapi.ResponseVPNEntry, error) {
 	}
 
 	// Processing all RTs found in VPN reuqest
+	gRepl.Rt = make([]*any.Any, 0)
+	var a *any.Any
 	for i := 0; i < len(repl.RT); i++ {
 		switch repl.RT[i].T {
 		case TwoOctetAsSpecificExtended:
-			gRepl.Rd, err = ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{
+			a, err = ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{
 				SubType:    binary.BigEndian.Uint32(repl.RT[i].Value[0:]),
 				As:         binary.BigEndian.Uint32(repl.RT[i].Value[2:]),
 				LocalAdmin: binary.BigEndian.Uint32(repl.RT[i].Value[4:]),
@@ -194,7 +195,7 @@ func NewVPNReply(repl *VPNReply) (*pbapi.ResponseVPNEntry, error) {
 				return nil, err
 			}
 		case IPv4AddressSpecificExtended:
-			gRepl.Rd, err = ptypes.MarshalAny(&pbapi.IPv4AddressSpecificExtended{
+			a, err = ptypes.MarshalAny(&pbapi.IPv4AddressSpecificExtended{
 				SubType:    binary.BigEndian.Uint32(repl.RT[i].Value[0:]),
 				Address:    string(repl.RT[i].Value[2:6]),
 				LocalAdmin: binary.BigEndian.Uint32(repl.RT[i].Value[6:]),
@@ -203,7 +204,7 @@ func NewVPNReply(repl *VPNReply) (*pbapi.ResponseVPNEntry, error) {
 				return nil, err
 			}
 		case FourOctetAsSpecificExtended:
-			gRepl.Rd, err = ptypes.MarshalAny(&pbapi.FourOctetAsSpecificExtended{
+			a, err = ptypes.MarshalAny(&pbapi.FourOctetAsSpecificExtended{
 				SubType:    binary.BigEndian.Uint32(repl.RT[i].Value[0:]),
 				As:         binary.BigEndian.Uint32(repl.RT[i].Value[2:]),
 				LocalAdmin: binary.BigEndian.Uint32(repl.RT[i].Value[6:]),
@@ -212,8 +213,8 @@ func NewVPNReply(repl *VPNReply) (*pbapi.ResponseVPNEntry, error) {
 				return nil, err
 			}
 		}
+		gRepl.Rt = append(gRepl.Rt, a)
 	}
 
-	glog.Infof("built reply: %+v", gRepl)
 	return &gRepl, nil
 }

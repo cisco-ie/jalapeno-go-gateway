@@ -49,8 +49,11 @@ spec:
             - name: config-volume
               mountPath: /config
           env:
-          - name: GATEWAY_PORT
-            value: "40040"
+            - name: GATEWAY_PORT
+              value: "40040"
+          args:
+            - --v
+            - "5"
       volumes:
         - name: config-volume
           configMap:

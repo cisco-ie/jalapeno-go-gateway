@@ -29,15 +29,15 @@ type dbMock struct {
 }
 
 func (db *dbMock) GetVPN(ctx context.Context, r *bgpclient.VPNRequest, ch chan *bgpclient.VPNReply) {
-	glog.V(5).Infof("db mock GetVPN rd: %+v ", r.RD)
+	glog.V(5).Infof("Mocked Data Store received request for RD: %+v RT: %+v", *r.RD, r.RT)
 	var repl *bgpclient.VPNReply
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	li, ok := db.vpn[r.RD]
+	li, ok := db.vpn[*r.RD]
 	if !ok {
 		ch <- &bgpclient.VPNReply{}
-		glog.V(5).Infof("db mock GetVPN reply with empty reply")
+		glog.V(5).Infof("Mocked Data Store did not find requested RD: %+v", *r.RD)
 		return
 	}
 	repl = &bgpclient.VPNReply{
@@ -46,7 +46,7 @@ func (db *dbMock) GetVPN(ctx context.Context, r *bgpclient.VPNRequest, ch chan *
 		Label: li.label,
 	}
 	ch <- repl
-	glog.V(5).Infof("db mock GetVPN reply %+v", repl)
+	glog.V(5).Infof("Mocked Data store returns RD: %+v RT: %+v Label: %d", *repl.RD, repl.RT, repl.Label)
 }
 
 // GetQoE is required method by DB interface, it takes requested QoE and searches through

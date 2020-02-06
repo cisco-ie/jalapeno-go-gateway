@@ -35,7 +35,7 @@ type dbClient struct {
 
 // GetVPN defines a function to request from DB VPN label based on RD and RTs passed by the client.
 func (dbc *dbClient) GetVPN(ctx context.Context, req *bgpclient.VPNRequest, result chan *bgpclient.VPNReply) {
-	glog.V(5).Infof("dbclient GetVPN rd: %+v ", req.RD)
+	glog.V(5).Infof("DB Client received request for RD: %+v RT: %+v", *req.RD, req.RT)
 	// Initializing reply
 	var repl *bgpclient.VPNReply
 	ch := make(chan *bgpclient.VPNReply)
@@ -47,12 +47,16 @@ func (dbc *dbClient) GetVPN(ctx context.Context, req *bgpclient.VPNRequest, resu
 		select {
 		case repl = <-ch:
 			result <- repl
-			glog.V(5).Infof("dbclient GetVPN reply: %+v ", repl.Label)
+			if repl != nil && repl.RD != nil {
+				glog.V(5).Infof("Data store returned RD: %+v RT: %+v Label: %d", *repl.RD, repl.RT, repl.Label)
+			} else {
+				glog.V(5).Infof("Data store returned nil")
+			}
 			return
 		case <-ctx.Done():
 			// Context was canceled, returning to prevent go routine leaking.
 			result <- &bgpclient.VPNReply{}
-			glog.V(5).Infof("dbclient GetVPN reply with empty reply, error: %+v ", ctx.Err())
+			glog.V(5).Infof("Data store returned error: %+v ", ctx.Err())
 			return
 		}
 	}

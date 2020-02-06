@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	api "github.com/osrg/gobgp/api"
@@ -46,13 +47,13 @@ type RTValue struct {
 
 // VPNRequest puts together parameters (RD and RTs) used in search of a matching VPN label
 type VPNRequest struct {
-	RD RDValue
+	RD *RDValue
 	RT []RTValue
 }
 
 // VPNReply carries values of labels along with corresponding to the label RD and RTs
 type VPNReply struct {
-	RD    RDValue
+	RD    *RDValue
 	RT    []RTValue
 	Label uint32
 }
@@ -91,56 +92,17 @@ func (b *bgpclient) Stop() {
 // NewVPNRequest creates VPNRequest struct and populates its fields with information
 // came in gRPC request.
 func NewVPNRequest(reqVPN *pbapi.RequestVPN) (*VPNRequest, error) {
-	var rdValue ptypes.DynamicAny
-	if err := ptypes.UnmarshalAny(reqVPN.Rd, &rdValue); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal route distinguisher with error: %+v", err)
-	}
-	vpnRequest := VPNRequest{
-		RD: RDValue{
-			Value: [8]byte{},
-		},
-		RT: make([]RTValue, len(reqVPN.Rt)),
-	}
+	var err error
+	vpnRequest := VPNRequest{}
 	// Processing RD found  in the VPN request
-	switch v := rdValue.Message.(type) {
-	case *pbapi.RouteDistinguisherTwoOctetAS:
-		binary.BigEndian.PutUint16(vpnRequest.RD.Value[0:], uint16(v.Admin))
-		binary.BigEndian.PutUint32(vpnRequest.RD.Value[4:], v.Assigned)
-		vpnRequest.RD.T = RouteDistinguisherTwoOctetAS
-	case *pbapi.RouteDistinguisherIPAddress:
-		copy(vpnRequest.RD.Value[0:], v.Admin)
-		binary.BigEndian.PutUint32(vpnRequest.RD.Value[4:], v.Assigned)
-		vpnRequest.RD.T = RouteDistinguisherIPAddressAS
-	case *pbapi.RouteDistinguisherFourOctetAS:
-		binary.BigEndian.PutUint32(vpnRequest.RD.Value[0:], v.Admin)
-		binary.BigEndian.PutUint16(vpnRequest.RD.Value[4:], uint16(v.Assigned))
-		vpnRequest.RD.T = RouteDistinguisherFourOctetAS
+	if vpnRequest.RD, err = unmarshalRD(reqVPN.Rd); err != nil {
+		return nil, err
 	}
 	// Processing all RTs found in VPN reuqest
-	for i := 0; i < len(reqVPN.Rt); i++ {
-		var rtValue ptypes.DynamicAny
-		if err := ptypes.UnmarshalAny(reqVPN.Rt[i], &rtValue); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal route target with error: %+v", err)
-		}
-		vpnRequest.RT[i].Value = [8]byte{}
-		switch v := rtValue.Message.(type) {
-		case *pbapi.TwoOctetAsSpecificExtended:
-			binary.BigEndian.PutUint16(vpnRequest.RT[i].Value[0:], uint16(v.SubType))
-			binary.BigEndian.PutUint16(vpnRequest.RT[i].Value[2:], uint16(v.As))
-			binary.BigEndian.PutUint32(vpnRequest.RT[i].Value[4:], v.LocalAdmin)
-			vpnRequest.RT[i].T = TwoOctetAsSpecificExtended
-		case *pbapi.IPv4AddressSpecificExtended:
-			binary.BigEndian.PutUint16(vpnRequest.RT[i].Value[0:], uint16(v.SubType))
-			copy(vpnRequest.RT[i].Value[2:], []byte(v.Address))
-			binary.BigEndian.PutUint16(vpnRequest.RT[i].Value[6:], uint16(v.LocalAdmin))
-			vpnRequest.RT[i].T = IPv4AddressSpecificExtended
-		case *pbapi.FourOctetAsSpecificExtended:
-			binary.BigEndian.PutUint16(vpnRequest.RT[i].Value[0:], uint16(v.SubType))
-			binary.BigEndian.PutUint32(vpnRequest.RT[i].Value[2:], v.As)
-			binary.BigEndian.PutUint16(vpnRequest.RT[i].Value[6:], uint16(v.LocalAdmin))
-			vpnRequest.RT[i].T = FourOctetAsSpecificExtended
-		}
+	if vpnRequest.RT, err = unmarshalRT(reqVPN.Rt); err != nil {
+		return nil, err
 	}
+	glog.V(5).Infof("vpn request RD: %+v RT: %+v", *vpnRequest.RD, vpnRequest.RT)
 
 	return &vpnRequest, nil
 }
@@ -152,69 +114,151 @@ func NewVPNReply(repl *VPNReply) (*pbapi.ResponseVPNEntry, error) {
 		Label: repl.Label,
 	}
 	var err error
+	// Marshalling RD from VPNReply
+	if gRepl.Rd, err = marshalRD(repl.RD); err != nil {
+		return nil, err
+	}
+	// Marshalling RTs from VPNReply
+	if gRepl.Rt, err = marshalRT(repl.RT); err != nil {
+		return nil, err
+	}
 
-	switch repl.RD.T {
+	return &gRepl, nil
+}
+
+func unmarshalRD(rd *any.Any) (*RDValue, error) {
+	var rdValue ptypes.DynamicAny
+	if err := ptypes.UnmarshalAny(rd, &rdValue); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal route distinguisher with error: %+v", err)
+	}
+	repl := &RDValue{
+		Value: [8]byte{},
+	}
+
+	switch v := rdValue.Message.(type) {
+	case *pbapi.RouteDistinguisherTwoOctetAS:
+		binary.BigEndian.PutUint16(repl.Value[0:], uint16(v.Admin))
+		binary.BigEndian.PutUint32(repl.Value[4:], v.Assigned)
+		repl.T = RouteDistinguisherTwoOctetAS
+	case *pbapi.RouteDistinguisherIPAddress:
+		copy(repl.Value[0:], v.Admin)
+		binary.BigEndian.PutUint32(repl.Value[4:], v.Assigned)
+		repl.T = RouteDistinguisherIPAddressAS
+	case *pbapi.RouteDistinguisherFourOctetAS:
+		binary.BigEndian.PutUint32(repl.Value[0:], v.Admin)
+		binary.BigEndian.PutUint16(repl.Value[4:], uint16(v.Assigned))
+		repl.T = RouteDistinguisherFourOctetAS
+	}
+
+	return repl, nil
+}
+
+func unmarshalRT(rts []*any.Any) ([]RTValue, error) {
+	repl := make([]RTValue, 0)
+	for i := 0; i < len(rts); i++ {
+		var rtValue ptypes.DynamicAny
+		if err := ptypes.UnmarshalAny(rts[i], &rtValue); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal route target with error: %+v", err)
+		}
+		rt := RTValue{
+			Value: [8]byte{},
+		}
+		switch v := rtValue.Message.(type) {
+		case *pbapi.TwoOctetAsSpecificExtended:
+			binary.BigEndian.PutUint16(rt.Value[0:], uint16(v.SubType))
+			binary.BigEndian.PutUint16(rt.Value[2:], uint16(v.As))
+			binary.BigEndian.PutUint32(rt.Value[4:], v.LocalAdmin)
+			rt.T = TwoOctetAsSpecificExtended
+		case *pbapi.IPv4AddressSpecificExtended:
+			binary.BigEndian.PutUint16(rt.Value[0:], uint16(v.SubType))
+			copy(rt.Value[2:], []byte(v.Address))
+			binary.BigEndian.PutUint16(rt.Value[6:], uint16(v.LocalAdmin))
+			rt.T = IPv4AddressSpecificExtended
+		case *pbapi.FourOctetAsSpecificExtended:
+			binary.BigEndian.PutUint16(rt.Value[0:], uint16(v.SubType))
+			binary.BigEndian.PutUint32(rt.Value[2:], v.As)
+			binary.BigEndian.PutUint16(rt.Value[6:], uint16(v.LocalAdmin))
+			rt.T = FourOctetAsSpecificExtended
+		}
+		repl = append(repl, rt)
+	}
+
+	return repl, nil
+}
+
+func marshalRD(rd *RDValue) (*any.Any, error) {
+	repl := &any.Any{}
+	var err error
+	if rd == nil {
+		return nil, nil
+	}
+	switch rd.T {
 	case RouteDistinguisherTwoOctetAS:
-		gRepl.Rd, err = ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{
-			Admin:    binary.BigEndian.Uint32(repl.RD.Value[0:]),
-			Assigned: binary.BigEndian.Uint32(repl.RD.Value[4:]),
+		repl, err = ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{
+			Admin:    binary.BigEndian.Uint32(rd.Value[0:]),
+			Assigned: binary.BigEndian.Uint32(rd.Value[4:]),
 		})
 		if err != nil {
 			return nil, err
 		}
 	case RouteDistinguisherIPAddressAS:
-		gRepl.Rd, err = ptypes.MarshalAny(&pbapi.RouteDistinguisherIPAddress{
-			Admin:    string(repl.RD.Value[0:4]),
-			Assigned: binary.BigEndian.Uint32(repl.RD.Value[4:]),
+		repl, err = ptypes.MarshalAny(&pbapi.RouteDistinguisherIPAddress{
+			Admin:    string(rd.Value[0:4]),
+			Assigned: binary.BigEndian.Uint32(rd.Value[4:]),
 		})
 		if err != nil {
 			return nil, err
 		}
 	case RouteDistinguisherFourOctetAS:
-		gRepl.Rd, err = ptypes.MarshalAny(&pbapi.RouteDistinguisherFourOctetAS{
-			Admin:    binary.BigEndian.Uint32(repl.RD.Value[0:]),
-			Assigned: binary.BigEndian.Uint32(repl.RD.Value[4:]),
+		repl, err = ptypes.MarshalAny(&pbapi.RouteDistinguisherFourOctetAS{
+			Admin:    binary.BigEndian.Uint32(rd.Value[0:]),
+			Assigned: binary.BigEndian.Uint32(rd.Value[4:]),
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Processing all RTs found in VPN reuqest
-	gRepl.Rt = make([]*any.Any, 0)
-	var a *any.Any
-	for i := 0; i < len(repl.RT); i++ {
-		switch repl.RT[i].T {
+	return repl, nil
+}
+
+func marshalRT(rts []RTValue) ([]*any.Any, error) {
+	repl := make([]*any.Any, 0)
+	var err error
+	var rt *any.Any
+
+	for i := 0; i < len(rts); i++ {
+		switch rts[i].T {
 		case TwoOctetAsSpecificExtended:
-			a, err = ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{
-				SubType:    binary.BigEndian.Uint32(repl.RT[i].Value[0:]),
-				As:         binary.BigEndian.Uint32(repl.RT[i].Value[2:]),
-				LocalAdmin: binary.BigEndian.Uint32(repl.RT[i].Value[4:]),
+			rt, err = ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{
+				SubType:    binary.BigEndian.Uint32(rts[i].Value[0:]),
+				As:         binary.BigEndian.Uint32(rts[i].Value[2:]),
+				LocalAdmin: binary.BigEndian.Uint32(rts[i].Value[4:]),
 			})
 			if err != nil {
 				return nil, err
 			}
 		case IPv4AddressSpecificExtended:
-			a, err = ptypes.MarshalAny(&pbapi.IPv4AddressSpecificExtended{
-				SubType:    binary.BigEndian.Uint32(repl.RT[i].Value[0:]),
-				Address:    string(repl.RT[i].Value[2:6]),
-				LocalAdmin: binary.BigEndian.Uint32(repl.RT[i].Value[6:]),
+			rt, err = ptypes.MarshalAny(&pbapi.IPv4AddressSpecificExtended{
+				SubType:    binary.BigEndian.Uint32(rts[i].Value[0:]),
+				Address:    string(rts[i].Value[2:6]),
+				LocalAdmin: binary.BigEndian.Uint32(repl[i].Value[6:]),
 			})
 			if err != nil {
 				return nil, err
 			}
 		case FourOctetAsSpecificExtended:
-			a, err = ptypes.MarshalAny(&pbapi.FourOctetAsSpecificExtended{
-				SubType:    binary.BigEndian.Uint32(repl.RT[i].Value[0:]),
-				As:         binary.BigEndian.Uint32(repl.RT[i].Value[2:]),
-				LocalAdmin: binary.BigEndian.Uint32(repl.RT[i].Value[6:]),
+			rt, err = ptypes.MarshalAny(&pbapi.FourOctetAsSpecificExtended{
+				SubType:    binary.BigEndian.Uint32(rts[i].Value[0:]),
+				As:         binary.BigEndian.Uint32(rts[i].Value[2:]),
+				LocalAdmin: binary.BigEndian.Uint32(rts[i].Value[6:]),
 			})
 			if err != nil {
 				return nil, err
 			}
 		}
-		gRepl.Rt = append(gRepl.Rt, a)
+		repl = append(repl, rt)
 	}
 
-	return &gRepl, nil
+	return repl, nil
 }

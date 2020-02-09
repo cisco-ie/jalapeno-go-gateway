@@ -48,6 +48,14 @@ func main() {
 	bgp, err := bgpclient.NewBGPClient("gobgpd.default:50051")
 	if err != nil {
 		glog.Warningf("failed to instantiate bgp client with error: %+v", err)
+	} else {
+		// Just for a test requesting one prefix
+		if err := bgp.GetPrefix(); err != nil {
+			glog.Warningf("failed to list path with error: %+v", err)
+		}
+		if err := bgp.AddPrefix(); err != nil {
+			glog.Warningf("failed to add path with error: %+v", err)
+		}
 	}
 	// Get interface to the database
 	// TODO, since it is not clear which database will be used, for now use mock DB

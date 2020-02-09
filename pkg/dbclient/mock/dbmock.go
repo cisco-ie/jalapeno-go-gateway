@@ -11,6 +11,7 @@ import (
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/bgpclient"
 	"github.com/cisco-ie/jalapeno-go-gateway/pkg/dbclient"
 	"github.com/golang/glog"
+	"github.com/osrg/gobgp/pkg/packet/bgp"
 )
 
 var (
@@ -20,24 +21,24 @@ var (
 
 type labelInfo struct {
 	label uint32
-	rt    []bgpclient.RTValue
+	rt    []bgp.ExtendedCommunityInterface
 }
 type dbMock struct {
 	mu  sync.Mutex
 	qoe map[int32]*pbapi.Qoe
-	vpn map[bgpclient.RDValue]labelInfo
+	vpn map[string]labelInfo
 }
 
 func (db *dbMock) GetVPN(ctx context.Context, r *bgpclient.VPNRequest, ch chan *bgpclient.VPNReply) {
-	glog.V(5).Infof("Mocked Data Store received request for RD: %+v RT: %+v", *r.RD, r.RT)
+	glog.V(5).Infof("Mocked Data Store received request for RD: %+v RT: %+v", r.RD.String(), r.RT)
 	var repl *bgpclient.VPNReply
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	li, ok := db.vpn[*r.RD]
+	li, ok := db.vpn[r.RD.String()]
 	if !ok {
 		ch <- &bgpclient.VPNReply{}
-		glog.V(5).Infof("Mocked Data Store did not find requested RD: %+v", *r.RD)
+		glog.V(5).Infof("Mocked Data Store did not find requested RD: %+v", r.RD.String())
 		return
 	}
 	repl = &bgpclient.VPNReply{
@@ -46,7 +47,7 @@ func (db *dbMock) GetVPN(ctx context.Context, r *bgpclient.VPNRequest, ch chan *
 		Label: li.label,
 	}
 	ch <- repl
-	glog.V(5).Infof("Mocked Data store returns RD: %+v RT: %+v Label: %d", *repl.RD, repl.RT, repl.Label)
+	glog.V(5).Infof("Mocked Data store returns RD: %+v RT: %+v Label: %d", repl.RD.String(), repl.RT, repl.Label)
 }
 
 // GetQoE is required method by DB interface, it takes requested QoE and searches through
@@ -77,42 +78,18 @@ func (db *dbMock) GetQoE(ctx context.Context, req *pbapi.Qoe, ch chan *pbapi.Qoe
 // loadTestData loads test data into the mock DB.
 func (db *dbMock) loadTestData() {
 	// TODO Consider more flexible way to load test data
-	vpn := map[bgpclient.RDValue]labelInfo{
-		{
-			T:     bgpclient.RouteDistinguisherTwoOctetAS,
-			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 234},
-		}: {
+	vpn := map[string]labelInfo{
+		bgp.NewRouteDistinguisherTwoOctetAS(577, 65000).String(): {
 			label: 24000,
-			rt: []bgpclient.RTValue{
-				{
-					T:     bgpclient.TwoOctetAsSpecificExtended,
-					Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 234},
-				},
-			},
+			rt:    []bgp.ExtendedCommunityInterface{bgp.NewTwoOctetAsSpecificExtended(bgp.EC_SUBTYPE_ROUTE_TARGET, 577, 65000, false)},
 		},
-		{
-			T:     bgpclient.RouteDistinguisherTwoOctetAS,
-			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 235},
-		}: {
+		bgp.NewRouteDistinguisherIPAddressAS("57.57.57.57", 65001).String(): {
 			label: 24001,
-			rt: []bgpclient.RTValue{
-				{
-					T:     bgpclient.TwoOctetAsSpecificExtended,
-					Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 235},
-				},
-			},
+			rt:    []bgp.ExtendedCommunityInterface{bgp.NewIPv4AddressSpecificExtended(bgp.EC_SUBTYPE_ROUTE_TARGET, "57.57.57.57", 65001, false)},
 		},
-		{
-			T:     bgpclient.RouteDistinguisherTwoOctetAS,
-			Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 236},
-		}: {
+		bgp.NewRouteDistinguisherFourOctetAS(456734567, 65002).String(): {
 			label: 24002,
-			rt: []bgpclient.RTValue{
-				{
-					T:     bgpclient.TwoOctetAsSpecificExtended,
-					Value: [8]byte{2, 65, 0, 0, 0, 0, 253, 236},
-				},
-			},
+			rt:    []bgp.ExtendedCommunityInterface{bgp.NewFourOctetAsSpecificExtended(bgp.EC_SUBTYPE_ROUTE_TARGET, 456734567, 65002, false)},
 		},
 	}
 	qoe := map[int32]*pbapi.Qoe{

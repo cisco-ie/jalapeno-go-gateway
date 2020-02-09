@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io"
 	"math/rand"
 	"net"
@@ -12,9 +11,10 @@ import (
 	"time"
 
 	pbapi "github.com/cisco-ie/jalapeno-go-gateway/pkg/apis"
+	"github.com/cisco-ie/jalapeno-go-gateway/pkg/bgpclient"
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/osrg/gobgp/pkg/packet/bgp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -46,32 +46,24 @@ func main() {
 	defer conn.Close()
 	gwclient := pbapi.NewGatewayServiceClient(conn)
 	// Mocking RDs and RTs for 3 VRFs
-	rd1, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65002)})
-	rd2, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65003)})
-	rd3, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65004)})
-	rd4, _ := ptypes.MarshalAny(&pbapi.RouteDistinguisherTwoOctetAS{Admin: uint32(577), Assigned: uint32(65005)})
-	rt1, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65002)})
-	rt2, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65003)})
-	rt3, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65004)})
-	rt4, _ := ptypes.MarshalAny(&pbapi.TwoOctetAsSpecificExtended{As: uint32(577), LocalAdmin: uint32(65005)})
-	requests := []*pbapi.RequestVPN{
-		{
-			Rd: rd1,
-			Rt: []*any.Any{rt1},
-		},
-		{
-			Rd: rd2,
-			Rt: []*any.Any{rt2},
-		},
-		{
-			Rd: rd3,
-			Rt: []*any.Any{rt3},
-		},
-		{
-			Rd: rd4,
-			Rt: []*any.Any{rt4},
-		},
+	requests := make([]*pbapi.RequestVPN, 3)
+	requests[0] = &pbapi.RequestVPN{
+		Rt: make([]*any.Any, 0),
 	}
+	requests[0].Rd = bgpclient.MarshalRD(bgp.NewRouteDistinguisherTwoOctetAS(577, 65000))
+	requests[0].Rt = append(requests[0].Rt, bgpclient.MarshalRT(bgp.NewTwoOctetAsSpecificExtended(bgp.EC_SUBTYPE_ROUTE_TARGET, 577, 65000, false)))
+
+	requests[1] = &pbapi.RequestVPN{
+		Rt: make([]*any.Any, 0),
+	}
+	requests[1].Rd = bgpclient.MarshalRD(bgp.NewRouteDistinguisherIPAddressAS("57.57.57.57", 65001))
+	requests[1].Rt = append(requests[0].Rt, bgpclient.MarshalRT(bgp.NewIPv4AddressSpecificExtended(bgp.EC_SUBTYPE_ROUTE_TARGET, "57.57.57.57", 65001, false)))
+	requests[2] = &pbapi.RequestVPN{
+		Rt: make([]*any.Any, 0),
+	}
+	requests[2].Rd = bgpclient.MarshalRD(bgp.NewRouteDistinguisherFourOctetAS(456734567, 65002))
+	requests[2].Rt = append(requests[0].Rt, bgpclient.MarshalRT(bgp.NewFourOctetAsSpecificExtended(bgp.EC_SUBTYPE_ROUTE_TARGET, 456734567, 65002, false)))
+
 	stopCh := setupSignalHandler()
 	// The client will randomly send requests between three VRFs green, blue and red.
 	ticker := time.NewTicker(time.Second * 10)
@@ -79,7 +71,7 @@ func main() {
 		"CLIENT_IP": net.ParseIP(client).String(),
 	}))
 	for {
-		i := rand.Intn(4)
+		i := rand.Intn(3)
 		stream, err := gwclient.VPN(ctx, requests[i])
 		if err != nil {
 			glog.Errorf("failed to request VPN label for request %+v with error: %+v", requests[i], err)
@@ -93,12 +85,20 @@ func main() {
 					glog.Errorf("failed to receive a message from the stream with error: %+v", err)
 					break
 				}
-
-				if entry != nil {
-					fmt.Printf("Received message: %+v\n", *entry)
-				} else {
-					fmt.Printf("Received empty message\n")
+				if entry == nil {
+					glog.Info("Received empty message\n")
+					continue
 				}
+				rd, err := bgpclient.UnmarshalRD(entry.Rd)
+				if err != nil {
+					glog.Errorf("failed to unmarshal received rd with error: %+v", err)
+				}
+				glog.Infof("Recived RD: %+v", rd)
+				rts, err := bgpclient.UnmarshalRT(entry.Rt)
+				if err != nil {
+					glog.Errorf("failed to unmarshal received rt with error: %+v", err)
+				}
+				glog.Infof("Recived RTs: %+v", rts)
 			}
 		}
 		select {

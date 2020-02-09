@@ -56,6 +56,7 @@ func (g *gateway) VPN(reqVPN *pbapi.RequestVPN, stream pbapi.GatewayService_VPNS
 	if err != nil {
 		return err
 	}
+	glog.Infof("request for Route Distinguisher: %+v", vpnRequest.RD.String())
 	repl, err := g.processVPNRequest(ctx, vpnRequest)
 	if err != nil {
 		return err
@@ -120,7 +121,7 @@ func (g *gateway) processQoERequest(ctx context.Context, reqQoEs *pbapi.RequestQ
 // processQoERequest start DB client and wait for either of 2 events, result comming back from a result channel
 // or a context timing out.
 func (g *gateway) processVPNRequest(ctx context.Context, req *bgpclient.VPNRequest) (*bgpclient.VPNReply, error) {
-	glog.V(5).Infof("processing VPN Request for RD: %+v RT: %+v", *req.RD, req.RT)
+	glog.V(5).Infof("processing VPN Request for RD: %+v RT: %+v", req.RD.String(), req.RT)
 	var repl *bgpclient.VPNReply
 	result := make(chan *bgpclient.VPNReply)
 	// Requesting DB client to retrieve requested infotmation
@@ -128,7 +129,7 @@ func (g *gateway) processVPNRequest(ctx context.Context, req *bgpclient.VPNReque
 	select {
 	case repl = <-result:
 		if repl != nil && repl.RD != nil {
-			glog.V(5).Infof("DB client returned RD: %+v RT: %+v Label: %d", *repl.RD, repl.RT, repl.Label)
+			glog.V(5).Infof("DB client returned RD: %+v RT: %+v Label: %d", repl.RD.String(), repl.RT, repl.Label)
 		} else {
 			glog.V(5).Infof("DB client returned nil")
 		}

@@ -1,0 +1,27 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jalapeno-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jalapeno-client
+  template:
+    metadata:
+      labels:
+        app: jalapeno-client
+    spec:
+      containers:
+        - name: jalapeno-client
+          image: docker.io/sbezverk/jalapeno-client:0.0.0
+          imagePullPolicy: Always
+          env:
+          - name: CLIENT_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+metadata:
+  name: jalapeno-client
+  namespace: default

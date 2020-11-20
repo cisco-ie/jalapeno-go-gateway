@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+data:
+  gateway-config.yaml: |
+metadata:
+  name: jalapeno-gateway-config
+  namespace: default
+---
+apiVersion: v1
+kind: Service
+spec:
+  ports:
+    - name: jalapeno-gateway
+      port: 40040
+      protocol: TCP
+      targetPort: gateway-port
+  selector:
+    app: jalapeno-gateway
+  type: ClusterIP
+  externalIPs:
+    - 192.168.80.104
+metadata:
+  name: jalapeno-gateway
+  namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jalapeno-gateway
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: jalapeno-gateway
+  template:
+    metadata:
+      labels:
+        app: jalapeno-gateway
+    spec:
+      containers:
+        - name: jalapeno-gateway
+          image: docker.io/sbezverk/jalapeno-gateway-debug:0.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 40040
+              name: gateway-port
+              protocol: TCP
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config
+          env:
+            - name: GATEWAY_PORT
+              value: "40040"
+          args:
+            - --v
+            - "5"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: jalapeno-gateway-config
+metadata:
+  name: jalapeno-gateway
+  namespace: default
